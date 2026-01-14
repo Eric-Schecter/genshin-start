@@ -1,22 +1,24 @@
 import { vec3 } from "gl-matrix";
 import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer/ecs";
 import { query } from "bitecs";
-import * as TWEEN from '@tweenjs/tween.js';
+import { Tween, Easing } from '@tweenjs/tween.js';
 
 export class Road {
     private _zLength = 212.4027;
     private _offset = vec3.fromValues(0, 34, 200);
-    private extendNum = 1;//扩展出的长度
+    private _extendNum = 1;
     private RoadUnitLength = 0;
     private hasStartGame = false;
     // private obj!: Object3D
-    private shouldStop: boolean = false;
+    private _shouldStop: boolean = false;
     private doorHasCreate: boolean = false;
     private shouldOpenDoor: boolean = false;
     private _originPosList: vec3[] = [];
     private _children: number[] = [];
 
     // private mixerList: AnimationMixer[] = [];
+
+    private _animations: Tween[] = [];
 
     onLoad(): void {
         const smRoadEntity = getEntityByTag('SM_Road');
@@ -41,15 +43,16 @@ export class Road {
 
         this.RoadUnitLength = this._children.length;
 
-        for (let i = 0; i < this.extendNum; i++) {
+        for (let i = 0; i < this._extendNum; i++) {
             for (let j = 0; j < this.RoadUnitLength; j++) {
                 let cloneEntity = clone(this._children[j]);
                 const transformComponent = transforms[cloneEntity];
                 vec3.add(transformComponent.translation, transformComponent.translation, vec3.fromValues(0, 0, -this._zLength * (1 + i)));
+                this._children.push(cloneEntity);
             }
         }
 
-        this._zLength *= 1 + this.extendNum;
+        this._zLength *= 1 + this._extendNum;
         for (let i = 0; i < this._children.length; i++) {
             const transform = transforms[this._children[i]];
             this._originPosList.push(vec3.clone(transform.translation));
@@ -65,54 +68,45 @@ export class Road {
         //     }
         // })
 
-        // for (let i of v.children) {
-        //     i.scale.multiplyScalar(0.1)
-        //     i.position.multiplyScalar(0.1)
-        //     i.position.sub(this.offset)
-        // }
-        // let n = v.children.length
-        // this.RoadUnitLength = n;
-        // for (let i = 0; i < this.extendNum; i++) {
-        //     for (let j = 0; j < n; j++) {
-        //         let clone = this.cloneObject3D(v.children[j]);
-        //         clone.position.add(new Vector3(0, 0, -this.zLength * (1 + i)))
-        //         v.add(clone)
-        //     }
-        // }
-        // this.zLength *= 1 + this.extendNum
-        // this.obj = v
-        // for (let i = 0; i < this.obj.children.length; i++) {
-        //     this.originPosList.push(this.obj.children[i].position.clone())
-        // }
         // this.on("start", this._startGame, this, true)
     }
     update(dt: number): void {
-        if (!this.shouldStop) {
+        if (!this._shouldStop) {
             const cameraEntity = getPrimaryCamera();
             const { transforms } = scene.components;
             const cameraCenter = transforms[cameraEntity].translation;
+
             for (let i = 0; i < this._children.length; i++) {
                 const childEntity = this._children[i];
-                const childPosition = transforms[childEntity].translation;
+                const transformComponent = transforms[childEntity];
+                const childPosition = transformComponent.translation;
                 if (childPosition[2] > cameraCenter[2]) {
                     if (i % this.RoadUnitLength == 0 && this.hasStartGame) {
-                        this.shouldStop = true;
+                        this._shouldStop = true;
                         // this._showDoor(childPosition[2]);
                         // gameManager.emit("showDoor", childPosition[2]);
                     }
-                    // vec3.sub(childPosition, childPosition, vec3.fromValues(0, 0, this._zLength));
-                    // vec3.sub(this._originPosList[i], this._originPosList[i], vec3.fromValues(0, 0, this._zLength));
-                    // const originalPos = vec3.clone(this._originPosList[i]);
-                    // vec3.add(childPosition, childPosition, vec3.fromValues(0, -70, 0));
-                    // TWEEN.TweenManager.KillTweensOf(this._children[i]);
-                    // TWEEN.TweenManager.Tween(this._children[i])
-                    //     .to({ position: originalPos }, 2)
-                    //     .easing(TWEEN.Easing.Back.Out)
-                    //     .start();
+                    vec3.sub(childPosition, childPosition, vec3.fromValues(0, 0, this._zLength));
+                    vec3.sub(this._originPosList[i], this._originPosList[i], vec3.fromValues(0, 0, this._zLength));
+                    const originalPos = vec3.clone(this._originPosList[i]);
+                    vec3.add(childPosition, childPosition, vec3.fromValues(0, -70, 0));
+                    if (this._animations[i]) {
+                        this._animations[i].stop();
+                    }
+                    const tween = new Tween(childPosition)
+                        .to(originalPos, 2000)
+                        .easing(Easing.Back.Out)
+                        .start(performance.now());
+                    this._animations[i] = tween;
 
+                    transformComponent.dirty = true;
                 }
             }
         }
+
+        this._animations.forEach(animation => {
+            animation.update(performance.now())
+        });
 
         // for (let mix of this.mixerList) {
         //     if (mix.time + dt > 1.4583333333333333) {

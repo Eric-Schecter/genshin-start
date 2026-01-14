@@ -7,7 +7,7 @@ export class ForwardController extends Controller {
     public constructor() {
         super();
 
-        this.pos = vec3.fromValues(0, 0, -500);
+        this.pos = vec3.fromValues(0, 0, 1);
     }
 
     public getMatrix(): mat4 {
@@ -15,8 +15,10 @@ export class ForwardController extends Controller {
     }
 
     public update(dt: number): void {
-        if (false) {
-            this.pos = vec3.add(vec3.create(), this.pos, vec3.scale(vec3.create(), this._speed, dt));
+        if (true) {
+            const offset = vec3.scale(vec3.create(), this._speed, dt);
+            this.pos = vec3.add(vec3.create(), this.pos, offset);
+            this.focus = vec3.add(vec3.create(), this.focus, offset);
         }
     }
 

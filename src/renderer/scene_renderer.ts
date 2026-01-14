@@ -57,8 +57,6 @@ export class SceneRenderer extends Renderer {
         this._mipmapGenerator = new MipmapGenerator(graphicsDevice);
         this._modelLoader = new ModelLoader();
 
-        // this._modelLoader.load('models/DamagedHelmet/DamagedHelmet.gltf').then(() => this._resetCamera());
-
         this._meshRenderer = new MeshRenderer(graphicsDevice);
         this._skyRenderer.load('images/birchwood_4k.hdr');
         // this._skyRenderer.load('images/HDR_Light_Studio_Free_HDRI_Design_14.hdr');

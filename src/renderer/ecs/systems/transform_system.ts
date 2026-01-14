@@ -15,10 +15,10 @@ export class TransformSystem {
 
         for (const entity of query(scene, [transforms])) {
             const transformComponent = transforms[entity];
-            if (!transformComponent.dirty) {
-                continue;
-            }
-            
+            // if (!transformComponent.dirty) {
+            //     continue;
+            // }
+
             if (!transformComponent.modelMatrixBuffer) {
                 transformComponent.modelMatrixBuffer = setupUniformBuffer(graphicsDevice, Array.from(transformComponent.worldMatrix), 'model matrix');
             } else {
@@ -38,9 +38,9 @@ export class TransformSystem {
 
         for (const entity of query(scene, [transforms])) {
             const transformComponent = transforms[entity];
-            if (!transformComponent.dirty) {
-                continue;
-            }
+            // if (!transformComponent.dirty) {
+            //     continue;
+            // }
 
             mat4.fromRotationTranslationScale(
                 transformComponent.worldMatrix,

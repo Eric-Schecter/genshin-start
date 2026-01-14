@@ -1,10 +1,10 @@
 import { GraphicsDevice } from "@eric-schecter/graphics";
-import { SceneRenderer } from "./renderer";
+import { ArcBallController, getPrimaryCamera, SceneRenderer } from "./renderer";
 import { Road } from "./road";
 import { scene } from "./renderer";
 import { BoundingBox } from "./renderer";
 import { query } from "bitecs";
-import { vec3 } from "gl-matrix";
+import { quat, vec3 } from "gl-matrix";
 import { ForwardController } from "./forward_controller";
 
 export class Game extends SceneRenderer {
@@ -13,7 +13,17 @@ export class Game extends SceneRenderer {
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
 
+        const cameraEntity = getPrimaryCamera();
+        const { transforms } = scene.components;
+        transforms[cameraEntity].rotation = quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180);
+        transforms[cameraEntity].dirty = true;
+
         this._controller = new ForwardController();
+        // todo: simpliy this
+        const dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), this._controller.focus, this._controller.pos));
+        const rotatedDir = vec3.transformQuat(vec3.create(), dir, quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180));
+        this._controller.focus = vec3.add(vec3.create(), this._controller.pos, rotatedDir);
+        // this._controller = new ArcBallController(graphicsDevice.canvas);
 
         this._road = new Road();
 
@@ -42,18 +52,5 @@ export class Game extends SceneRenderer {
         this._road.update(dt);
 
         super.update(dt);
-    }
-
-    private _resetCamera() {
-        const { meshes } = scene.components;
-        const bbox = new BoundingBox();
-        for (const entity of query(scene, [meshes])) {
-            const meshComponent = meshes[entity];
-            bbox.union(meshComponent.bbox);
-        }
-        const { max, min } = bbox;
-        const y = max[1] - min[1];
-        this._controller.pos = vec3.fromValues(0, min[1] + y, 40000);
-        this._controller.focus = vec3.fromValues(0, min[1] + y, 0);
     }
 }
