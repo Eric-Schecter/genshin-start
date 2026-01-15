@@ -14,10 +14,6 @@ export class MeshSystem {
                 continue;
             }
 
-            if(entity === 30){
-                console.log('hit')
-            }
-
             meshComponent.vertexBuffers.push(this._createVertexBuffer(graphicsDevice, meshComponent.positions));
             meshComponent.vertexBuffers.push(this._createVertexBuffer(graphicsDevice, meshComponent.normals));
             meshComponent.vertexBuffers.push(this._createVertexBuffer(graphicsDevice, meshComponent.uvs));

@@ -1,8 +1,9 @@
 import {
-    BlendState, DepthStencilState, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE,
+    BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE,
     EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY,
-    EN_STENCIL_OP, GraphicsDevice, GraphicsPipeline, InputLayout,
-    RasterizerState, RenderCommandBuffer, WGPUTexture
+    EN_RESOURCE_MISC_FLAG,
+    EN_STENCIL_OP, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout,
+    RasterizerState, RenderCommandBuffer, WGPUBuffer, WGPUTexture
 } from "@eric-schecter/graphics";
 import { query } from "bitecs";
 import { Renderer } from "./renderer";
@@ -11,10 +12,83 @@ import { scene, invalid_id, getPrimaryCamera } from "../ecs";
 export class MeshRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
 
+    private _instanceStorageBuffer: WGPUBuffer;
+
+    private _paramsBuffer: WGPUBuffer[] = [];
+
+    private _renderBatch = new Map<number, number[]>(); // mesh entity -> object entities
+
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
 
         this._setupPipeline();
+
+        const maxCount = 10000;
+        this._instanceStorageBuffer = graphicsDevice.createBuffer({
+            size: maxCount * 4 * 4 * 4,
+            name: 'instance storage buffer',
+            usage: EN_USAGE.DEFAULT,
+            bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            stride: 0,
+            count: maxCount,
+        });
+
+        // todo: change to dynamic size
+        for (let i = 0; i < maxCount; i++) {
+            this._paramsBuffer[i] = graphicsDevice.createBuffer({
+                size: 4 * 4,
+                name: 'params buffer',
+                usage: EN_USAGE.DEFAULT,
+                bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
+                miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+                stride: 0,
+                count: 1,
+            });
+        }
+
+    }
+
+    public update() {
+        // todo: add dirty mark
+        const { objects, transforms } = scene.components;
+
+        this._renderBatch.clear();
+
+        for (const entity of query(scene, [objects, transforms])) {
+            const objectComponent = objects[entity];
+            const meshEntities = objectComponent?.meshEntities;
+
+            for (let i = 0; i < meshEntities.length; i++) {
+                const meshEntity = meshEntities[i];
+                if (!this._renderBatch.has(meshEntity)) {
+                    this._renderBatch.set(meshEntity, [entity]);
+                } else {
+                    this._renderBatch.get(meshEntity)?.push(entity);
+                }
+            }
+        }
+
+        let count = 0;
+        const stride = 64;
+        for (const [_, objectEntities] of this._renderBatch) {
+            count += objectEntities.length;
+        }
+        const data = new Float32Array(count * stride);
+
+        let offset = 0;
+        for (const [_, objectEntities] of this._renderBatch) {
+            for (let i = 0; i < objectEntities.length; i++) {
+                const entity = objectEntities[i];
+
+                const { worldMatrix } = transforms[entity];
+                data.set(worldMatrix, offset * 16);
+
+                offset++;
+            }
+        }
+
+        this._instanceStorageBuffer.update(data);
     }
 
     public render(cmd: RenderCommandBuffer, envTexture: WGPUTexture) {
@@ -24,7 +98,7 @@ export class MeshRenderer extends Renderer {
 
         this._graphicsDevice.bindPipeline(cmd, this._pipeline);
 
-        const { objects, meshes, materials, transforms, cameras } = scene.components;
+        const { meshes, materials, cameras } = scene.components;
 
         const primaryCameraEntity = getPrimaryCamera();
         if (primaryCameraEntity === invalid_id) {
@@ -36,45 +110,44 @@ export class MeshRenderer extends Renderer {
             return;
         }
 
-        for (const entity of query(scene, [objects, transforms])) {
-            const objectComponent = objects[entity];
-            const meshEntities = objectComponent?.meshEntities;
-            if (!objectComponent || meshEntities.length === 0) {
-                continue;
-            }
-            const { modelMatrixBuffer } = transforms[entity];
-            if (!modelMatrixBuffer) {
-                // console.error('no transform data');
-                continue;
-            }
+        let drawcall = 0;
+        let offset = 0;
+        for (const [meshEntity, objectEntities] of this._renderBatch) {
 
-            for (let i = 0; i < meshEntities.length; i++) {
-                const meshComponent = meshes[meshEntities[i]];
-                const materialEntity = meshComponent?.materialEntity;
-                if (materialEntity.length > 1) {
-                    // console.warn('not implememnt multi material for now');
-                }
-                const materialComponent = materials[materialEntity[0]]; // todo
-
-                const { diffuseTexture, normalTexture, metallicRoughnessTexture, emissiveTexture, occlusionTexture } = materialComponent;
-                const { vertexBuffers, indexBuffer } = meshComponent;
-
-                this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
-                this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32, 0);
-                this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
-                this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
-                this._graphicsDevice.bindResource(cmd, modelMatrixBuffer, 2);
-                this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
-                this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._blackTexture, 4);
-                this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._blackTexture, 5);
-                this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._blackTexture, 6);
-                this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._blackTexture, 7);
-                this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._blackTexture, 8);
-                this._graphicsDevice.bindResource(cmd, envTexture || this._whiteTextureCube, 9);
-                this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 10);
-                this._graphicsDevice.drawIndexed(cmd, indexBuffer!.desc.count);
+            const meshComponent = meshes[meshEntity];
+            const materialEntity = meshComponent?.materialEntity;
+            if (materialEntity.length > 1) {
+                // console.warn('not implememnt multi material for now');
             }
+            const materialComponent = materials[materialEntity[0]]; // todo
+
+            const { diffuseTexture, normalTexture, metallicRoughnessTexture, emissiveTexture, occlusionTexture } = materialComponent;
+            const { vertexBuffers, indexBuffer } = meshComponent;
+
+            this._paramsBuffer[drawcall].update(new Uint32Array([offset, 0, 0, 0]));
+
+            this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
+            this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32);
+            this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
+            this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
+            this._graphicsDevice.bindResource(cmd, this._paramsBuffer[drawcall], 2);
+            this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._blackTexture, 4);
+            this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._blackTexture, 5);
+            this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._blackTexture, 6);
+            this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._blackTexture, 7);
+            this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._blackTexture, 8);
+            this._graphicsDevice.bindResource(cmd, envTexture || this._whiteTextureCube, 9);
+            this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 10);
+            this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 11);
+            this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, objectEntities.length);
+
+            drawcall++;
+
+            offset += objectEntities.length;
         }
+
+        console.log(drawcall);
     }
 
     private async _setupPipeline() {

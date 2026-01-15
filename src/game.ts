@@ -6,9 +6,14 @@ import { BoundingBox } from "./renderer";
 import { query } from "bitecs";
 import { quat, vec3 } from "gl-matrix";
 import { ForwardController } from "./forward_controller";
+import { Column } from "./column";
 
 export class Game extends SceneRenderer {
     private _road: Road;
+
+    private _column: Column;
+
+    private _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -18,14 +23,18 @@ export class Game extends SceneRenderer {
         transforms[cameraEntity].rotation = quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180);
         transforms[cameraEntity].dirty = true;
 
-        this._controller = new ForwardController();
-        // todo: simpliy this
-        const dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), this._controller.focus, this._controller.pos));
-        const rotatedDir = vec3.transformQuat(vec3.create(), dir, quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180));
-        this._controller.focus = vec3.add(vec3.create(), this._controller.pos, rotatedDir);
-        // this._controller = new ArcBallController(graphicsDevice.canvas);
+        if (this._debug) {
+            this._controller = new ArcBallController(graphicsDevice.canvas);
+        } else {
+            this._controller = new ForwardController();
+            // todo: simpliy this
+            const dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), this._controller.focus, this._controller.pos));
+            const rotatedDir = vec3.transformQuat(vec3.create(), dir, quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180));
+            this._controller.focus = vec3.add(vec3.create(), this._controller.pos, rotatedDir);
+        }
 
         this._road = new Road();
+        this._column = new Column();
 
         Promise.all([
             // this._modelLoader.load('models/DOOR.glb'),
@@ -43,7 +52,7 @@ export class Game extends SceneRenderer {
             // this._modelLoader.load('models/WHITE_PLANE.glb'),
         ]).then(() => {
             this._road.onLoad();
-            // this._resetCamera();
+            // this._column.onload();
         });
     }
 

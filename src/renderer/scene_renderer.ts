@@ -2,15 +2,16 @@ import {
     GraphicsDevice, EN_FORMAT, EN_BIND_FLAG, EN_RESOURCE_MISC_FLAG, EN_USAGE, EN_RESOURCE_STATE,
     WGPUTexture, EN_TEX_TYPE, RenderPassImage, EN_LOAD_OP, RenderCommandBuffer
 } from "@eric-schecter/graphics";
-import {  vec4 } from 'gl-matrix';
+import { vec4 } from 'gl-matrix';
 import { ArcBallController, Controller } from './controller';
 import { SkyRenderer, Renderer, MipmapGenerator, ImageRenderer, MeshRenderer } from './renderers';
 import { ModelLoader } from './model_loader';
 import { Tonemap } from './pass/tonemap';
-import { CameraSystem, defaultCameraComponent, defaultTransformComponent, scene, TransformSystem } from "./ecs";
+import {
+    CameraSystem, defaultCameraComponent, defaultTransformComponent, scene, TransformSystem,
+    MeshSystem, MaterialSystem
+} from "./ecs";
 import { addComponent, addEntity, query } from "bitecs";
-import { MeshSystem } from "./ecs/systems/mesh_system";
-import { MaterialSystem } from "./ecs/systems/material_system";
 
 export class SceneRenderer extends Renderer {
     private _needUpdate = 1;
@@ -107,6 +108,7 @@ export class SceneRenderer extends Renderer {
         this._needUpdate += this._transformSystem.update(this._graphicsDevice);
 
         this._skyRenderer.update();
+        this._meshRenderer.update();
     }
 
     public render(): void {
