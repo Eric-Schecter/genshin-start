@@ -26,7 +26,7 @@ export class SceneRenderer extends Renderer {
 
     private _textures: WGPUTexture[] = [];
 
-    private _skyRenderer: SkyRenderer;
+    protected _skyRenderer: SkyRenderer;
     private _imageRenderer: ImageRenderer;
     private _meshRenderer: MeshRenderer;
     private _mipmapGenerator: MipmapGenerator;
@@ -59,8 +59,7 @@ export class SceneRenderer extends Renderer {
         this._modelLoader = new ModelLoader();
 
         this._meshRenderer = new MeshRenderer(graphicsDevice);
-        this._skyRenderer.load('images/birchwood_4k.hdr');
-        // this._skyRenderer.load('images/HDR_Light_Studio_Free_HDRI_Design_14.hdr');
+
         this._createTextures();
 
         this._tonemap = new Tonemap(graphicsDevice);
@@ -104,8 +103,8 @@ export class SceneRenderer extends Renderer {
 
         this._needUpdate += this._meshSystem.update(this._graphicsDevice);
         this._needUpdate += this._materialSystem.update(this._graphicsDevice);
-        this._needUpdate += this._cameraSystem.update(this._graphicsDevice, this._controller);
-        this._needUpdate += this._transformSystem.update(this._graphicsDevice);
+        this._needUpdate += this._cameraSystem.update(this._graphicsDevice, this._controller, dt);
+        this._needUpdate += this._transformSystem.update();
 
         this._skyRenderer.update();
         this._meshRenderer.update();

@@ -1,23 +1,34 @@
 import { vec4, quat, vec2, vec3, mat4, mat3 } from "gl-matrix";
 import { Controller } from "./controller";
-import { getFocus, getPos, getUp } from "../utils";
+import { getFocus, getPos } from "../utils";
 
-export class ArcBallController extends Controller {
+export class FirstPersonController extends Controller {
+    private _keysPressed = new Set<string>();
+
     private _preMousePos = vec2.create();
 
-    private _fixedUp = true;
-
     private _isDragging = false;
+
+    private _speed = 50;
 
     constructor(private _canvas: HTMLCanvasElement) {
         super();
         this._registerEvents();
     }
 
-    public getMatrix() {
-        if (!this._dirty) {
-            return this.viewMatrix;
+    public getMatrix(dt: number) {
+        if (!this.dirty) {
+            return this._viewMatrix;
         }
+        let x = 0;
+        let z = 0;
+
+        const speed = this._speed * dt * 1000;
+
+        if (this._keysPressed.has('w')) z -= speed;
+        if (this._keysPressed.has('s')) z += speed;
+        if (this._keysPressed.has('a')) x -= speed;
+        if (this._keysPressed.has('d')) x += speed;
 
         const dir = vec3.sub(vec3.create(), this.focus, this.pos);
 
@@ -27,13 +38,18 @@ export class ArcBallController extends Controller {
         const xAxis = vec3.normalize(vec3.create(), vec3.cross(vec3.create(), zAxis, vec3.normalize(vec3.create(), this.up)));
         const yAxis = vec3.normalize(vec3.create(), vec3.cross(vec3.create(), xAxis, zAxis));
 
+        const xOffset = vec3.scale(vec3.create(), xAxis, x);
+        const zOffset = vec3.scale(vec3.create(), zAxis, -z);
+        const moveOffset = vec3.add(vec3.create(), xOffset, zOffset);
+
         const zoomOffset = vec3.fromValues(0, 0, this._zoom * currentZoom);
 
-        const motion = vec4.transformMat4(vec4.create(), vec4.scale(vec4.create(), this.motion, currentZoom), this._viewMatrixInv);
-        const motionVec3 = vec3.fromValues(motion[0], motion[1], motion[2]);
-        const motionMat4 = mat4.translate(mat4.create(), mat4.create(), motionVec3);
+        const motionMat4 = mat4.translate(mat4.create(), mat4.create(), zoomOffset);
 
-        const focusMat4 = mat4.translate(mat4.create(), mat4.create(), this.focus);
+        const focusMat4 = mat4.translate(
+            mat4.create(),
+            mat4.create(),
+            vec3.add(vec3.create(), this.focus, moveOffset));
         const focusMat4Inv = mat4.invert(mat4.create(), focusMat4) as mat4;
 
         const centerTranslation = mat4.mul(mat4.create(), motionMat4, focusMat4Inv);
@@ -59,25 +75,27 @@ export class ArcBallController extends Controller {
 
         mat4.invert(this._viewMatrixInv, viewMatrix);
 
-        if (!this._fixedUp) {
-            this.up = getUp(this._viewMatrixInv);
-        }
         this.pos = getPos(this._viewMatrixInv);
         const focus = getFocus(this._viewMatrixInv);
 
         const dis = vec3.len(vec3.sub(vec3.create(), this.focus, this.pos));
         vec3.sub(this.focus, this.pos, vec3.scale(vec3.create(), focus, dis));
 
-        this.dirty = false;
+        this._reset();
 
         return viewMatrix;
+    }
+
+    public get dirty() {
+        return this._dirty || this._keysPressed.size !== 0;
     }
 
     public destroy() {
         this._canvas.removeEventListener('mousedown', this._mousedown);
         this._canvas.removeEventListener('mousemove', this._mousemove);
         window.removeEventListener('mouseup', this._mouseup);
-        this._canvas.removeEventListener('wheel', this._wheel);
+        window.removeEventListener('keydown', this._keydown);
+        window.removeEventListener('keyup', this._keyup);
     }
 
     public rotate(curPos: vec2) {
@@ -89,22 +107,37 @@ export class ArcBallController extends Controller {
         this._dirty = true;
     }
 
-    public zoom(delta: number) {
-        this._zoom = delta;
-
-        this._dirty = true;
-    }
-
     public pan(delta: vec2) {
         this._motion = vec4.fromValues(delta[0], delta[1], 0, 0);
 
         this._dirty = true;
     }
 
+    private _registerEvents() {
+        this._canvas.addEventListener('mousedown', this._mousedown);
+        this._canvas.addEventListener('mousemove', this._mousemove);
+        window.addEventListener('mouseup', this._mouseup);
+        window.addEventListener('keydown', this._keydown);
+        window.addEventListener('keyup', this._keyup);
+    }
+
     private _reset() {
         this._rotation = quat.create();
         this._zoom = 0;
         this._motion = vec4.create();
+
+        this._dirty = false;
+    }
+
+    private _keydown = (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        this._keysPressed.add(e.key.toLowerCase());
+        this._dirty = true;
+    }
+
+    private _keyup = (e: KeyboardEvent) => {
+        this._keysPressed.delete(e.key.toLowerCase());
+        this._dirty = true;
     }
 
     private _screenToNDC(pos: vec2, size: vec2) {
@@ -142,8 +175,6 @@ export class ArcBallController extends Controller {
             return;
         }
 
-        this._reset();
-
         const curMousePos = this._screenToNDC(vec2.fromValues(e.offsetX, e.offsetY), vec2.fromValues(this._canvas.width, this._canvas.height));
         if (e.button === 0) {
             this.rotate(curMousePos)
@@ -155,18 +186,5 @@ export class ArcBallController extends Controller {
 
     private _mouseup = () => {
         this._isDragging = false;
-    }
-
-    private _wheel = (e: WheelEvent) => {
-        this._reset();
-
-        this.zoom(-e.deltaY * 0.01);
-    }
-
-    private _registerEvents() {
-        this._canvas.addEventListener('mousedown', this._mousedown);
-        this._canvas.addEventListener('mousemove', this._mousemove);
-        window.addEventListener('mouseup', this._mouseup);
-        this._canvas.addEventListener('wheel', this._wheel);
     }
 }

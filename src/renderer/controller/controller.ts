@@ -23,7 +23,7 @@ export abstract class Controller {
 
     public stop(): void { };
 
-    public abstract getMatrix(): mat4;
+    public abstract getMatrix(dt: number): mat4;
 
     public abstract destroy(): void;
 

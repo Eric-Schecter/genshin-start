@@ -1,4 +1,3 @@
-import { WGPUBuffer } from "@eric-schecter/graphics";
 import { mat4, quat, vec3 } from "gl-matrix";
 
 export type TransformComponent = {
@@ -8,8 +7,7 @@ export type TransformComponent = {
 
     localMatrix: mat4;
     worldMatrix: mat4;
-
-    modelMatrixBuffer?: WGPUBuffer;
+    normalMatrix: mat4;
 
     dirty: boolean;
 }
@@ -21,6 +19,7 @@ export const defaultTransformComponent: TransformComponent = {
 
     localMatrix: mat4.create(),
     worldMatrix: mat4.create(),
+    normalMatrix: mat4.create(),
 
     dirty: false,
 }

@@ -6,7 +6,7 @@ import { Controller } from '../../controller';
 import { mat4 } from 'gl-matrix';
 
 export class CameraSystem {
-    public update(graphicsDevice: GraphicsDevice, controller: Controller): number {
+    public update(graphicsDevice: GraphicsDevice, controller: Controller, dt: number): number {
         let res = 0;
 
         const { cameras, transforms } = scene.components;
@@ -38,7 +38,7 @@ export class CameraSystem {
             }
 
             if (controller.dirty) {
-                const view = controller.getMatrix();
+                const view = controller.getMatrix(dt);
 
                 const transformComponent = transforms[entity];
                 transformComponent.translation = controller.pos;

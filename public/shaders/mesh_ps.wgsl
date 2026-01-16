@@ -132,5 +132,5 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     let color = applyLighting(lighting, albedo, emissive, F, occlusion);
 
-    return diffuse;
+    return vec4(N,1.);
 }

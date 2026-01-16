@@ -24,6 +24,7 @@ export class Road {
         const smRoadEntity = getEntityByTag('SM_Road');
         if (smRoadEntity === invalid_id) {
             console.error('cannot find sm road');
+            return;
         }
 
         const { hierarchies, transforms } = scene.components;
@@ -45,7 +46,7 @@ export class Road {
 
         for (let i = 0; i < this._extendNum; i++) {
             for (let j = 0; j < this.RoadUnitLength; j++) {
-                let cloneEntity = clone(this._children[j]);
+                const cloneEntity = clone(this._children[j]);
                 const transformComponent = transforms[cloneEntity];
                 vec3.add(transformComponent.translation, transformComponent.translation, vec3.fromValues(0, 0, -this._zLength * (1 + i)));
                 this._children.push(cloneEntity);
@@ -96,6 +97,9 @@ export class Road {
                     const tween = new Tween(childPosition)
                         .to(originalPos, 2000)
                         .easing(Easing.Back.Out)
+                        .onUpdate(() => {
+                            transformComponent.dirty = true;
+                        })
                         .start(performance.now());
                     this._animations[i] = tween;
 

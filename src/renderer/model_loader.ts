@@ -32,6 +32,9 @@ export class ModelLoader {
         const { objects, transforms, hierarchies, tags } = scene.components;
 
         const rootEntity = addEntity(scene);
+        addComponent(scene, rootEntity, objects);
+        objects[rootEntity] = { ...defaultObjectComponent };
+
         addComponent(scene, rootEntity, hierarchies);
         hierarchies[rootEntity] = { ...defaultHierarchyComponent };
 
@@ -58,7 +61,7 @@ export class ModelLoader {
             transformComponent.translation = node.getTranslation();
 
             addComponent(scene, objectEntity, hierarchies);
-            hierarchies[objectEntity] = { ...defaultHierarchyComponent, ...{ parent: rootEntity } };
+            hierarchies[objectEntity] = { ...defaultHierarchyComponent, ...{ parent: rootEntity, layer: 1 } }; // todo: layer
 
             addComponent(scene, objectEntity, tags);
             tags[objectEntity] = { ...defaultTagComponent, ...{ tag: node.getName() } };
@@ -71,6 +74,8 @@ export class ModelLoader {
                 } else {
                     objectComponent.meshEntities = meshEntity;
                 }
+            }else{
+                console.log('no mesh');
             }
         })
     }

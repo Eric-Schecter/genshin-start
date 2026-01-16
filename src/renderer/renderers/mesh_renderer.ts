@@ -25,7 +25,7 @@ export class MeshRenderer extends Renderer {
 
         const maxCount = 10000;
         this._instanceStorageBuffer = graphicsDevice.createBuffer({
-            size: maxCount * 4 * 4 * 4,
+            size: maxCount * 4 * 4 * 4 * 2,
             name: 'instance storage buffer',
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
@@ -59,8 +59,7 @@ export class MeshRenderer extends Renderer {
             const objectComponent = objects[entity];
             const meshEntities = objectComponent?.meshEntities;
 
-            for (let i = 0; i < meshEntities.length; i++) {
-                const meshEntity = meshEntities[i];
+            for (const meshEntity of meshEntities) {
                 if (!this._renderBatch.has(meshEntity)) {
                     this._renderBatch.set(meshEntity, [entity]);
                 } else {
@@ -70,20 +69,20 @@ export class MeshRenderer extends Renderer {
         }
 
         let count = 0;
-        const stride = 64;
+        let stride = 64;
         for (const [_, objectEntities] of this._renderBatch) {
             count += objectEntities.length;
         }
         const data = new Float32Array(count * stride);
 
         let offset = 0;
+        stride = 16;
         for (const [_, objectEntities] of this._renderBatch) {
-            for (let i = 0; i < objectEntities.length; i++) {
-                const entity = objectEntities[i];
-
-                const { worldMatrix } = transforms[entity];
-                data.set(worldMatrix, offset * 16);
-
+            for (const entity of objectEntities) {
+                const { worldMatrix, normalMatrix } = transforms[entity];
+                data.set(worldMatrix, offset * stride);
+                offset++;
+                data.set(normalMatrix, offset * stride);
                 offset++;
             }
         }
@@ -111,9 +110,8 @@ export class MeshRenderer extends Renderer {
         }
 
         let drawcall = 0;
-        let offset = 0;
+        let entityCount = 0;
         for (const [meshEntity, objectEntities] of this._renderBatch) {
-
             const meshComponent = meshes[meshEntity];
             const materialEntity = meshComponent?.materialEntity;
             if (materialEntity.length > 1) {
@@ -124,7 +122,7 @@ export class MeshRenderer extends Renderer {
             const { diffuseTexture, normalTexture, metallicRoughnessTexture, emissiveTexture, occlusionTexture } = materialComponent;
             const { vertexBuffers, indexBuffer } = meshComponent;
 
-            this._paramsBuffer[drawcall].update(new Uint32Array([offset, 0, 0, 0]));
+            this._paramsBuffer[drawcall].update(new Uint32Array([entityCount, 0, 0, 0]));
 
             this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
             this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32);
@@ -143,11 +141,10 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, objectEntities.length);
 
             drawcall++;
-
-            offset += objectEntities.length;
+            entityCount += objectEntities.length;
         }
 
-        console.log(drawcall);
+        console.log(`drawcall: ${drawcall}, entity: ${entityCount}`);
     }
 
     private async _setupPipeline() {

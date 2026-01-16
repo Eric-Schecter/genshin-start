@@ -16,6 +16,8 @@ import { scene } from "../ecs";
 import { query } from "bitecs";
 
 export class SkyRenderer extends Renderer {
+    private _enable = false;
+
     private _envTexture: WGPUTexture;
     private _envrenderingColorTexture: WGPUTexture;
     private _envrenderingDepthTexture: WGPUTexture;
@@ -48,6 +50,14 @@ export class SkyRenderer extends Renderer {
         }
         this._setupPipeline();
         this._setupEnvCameras();
+    }
+
+    public get enable() {
+        return this._enable;
+    }
+
+    public set enable(value: boolean) {
+        this._enable = value;
     }
 
     public async load(url: string) {
@@ -110,7 +120,7 @@ export class SkyRenderer extends Renderer {
     }
 
     public renderEnvMap(cmd: RenderCommandBuffer, mipmapGenerator: MipmapGenerator) {
-        if (!this._envTexture || !this._skyEnvPipeline) {
+        if (!this._envTexture || !this._skyEnvPipeline || !this._enable) {
             return;
         }
         this._setupEnvCameras();
@@ -137,7 +147,7 @@ export class SkyRenderer extends Renderer {
     }
 
     public render(cmd: RenderCommandBuffer) {
-        if (!this._skyPipeline || !this._envTexture) {
+        if (!this._skyPipeline || !this._envTexture || !this._enable) {
             return;
         }
         this._graphicsDevice.bindPipeline(cmd, this._skyPipeline);

@@ -19,8 +19,7 @@ export const scene = createWorld({
 });
 
 export function clone(entity: number) {
-    const { transforms, cameras, tags, hierarchies,
-        objects, materials, meshes } = scene.components;
+    const { transforms, cameras, tags, hierarchies, objects, materials, meshes } = scene.components;
     const clonedEntity = addEntity(scene);
     if (hasComponent(scene, entity, cameras)) {
         addComponent(scene, clonedEntity, cameras);
@@ -46,7 +45,6 @@ export function clone(entity: number) {
 
                 localMatrix: mat4.clone(transforms[entity].localMatrix),
                 worldMatrix: mat4.clone(transforms[entity].worldMatrix),
-                modelMatrixBuffer: undefined,
                 dirty: true,
             }
         };
@@ -73,6 +71,15 @@ export function clone(entity: number) {
     if (hasComponent(scene, entity, meshes)) {
         addComponent(scene, clonedEntity, meshes);
         meshes[clonedEntity] = { ...meshes[entity], ...{ bbox: meshes[entity].bbox.clone() } };
+    }
+
+    // clone children
+    // todo: just one layer for now
+    for (const childEntity of query(scene, [hierarchies])) {
+        if (hierarchies[childEntity].parent === entity) {
+            const clonedChildEntity = clone(childEntity);
+            hierarchies[clonedChildEntity].parent = clonedEntity;
+        }
     }
 
     return clonedEntity;
