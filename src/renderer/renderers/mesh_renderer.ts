@@ -125,7 +125,7 @@ export class MeshRenderer extends Renderer {
             this._paramsBuffer[drawcall].update(new Uint32Array([entityCount, 0, 0, 0]));
 
             this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
-            this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32);
+            this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32, 0);
             this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._paramsBuffer[drawcall], 2);

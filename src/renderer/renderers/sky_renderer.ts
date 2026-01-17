@@ -28,7 +28,7 @@ export class SkyRenderer extends Renderer {
     private _cameraUniform = new Float32Array(20);
 
     private _skyPipeline: GraphicsPipeline;
-
+    private _skyCubemapPipeline: GraphicsPipeline;
     private _skyEnvPipeline: GraphicsPipeline;
 
     private _filterEnvMapPipeline: ComputePipeline;
@@ -38,6 +38,8 @@ export class SkyRenderer extends Renderer {
     private _camerasUniform = new Float32Array(16 * 6);
 
     private _paramsUniforms: WGPUBuffer[] = [];
+
+    private _isEquirectangular = true;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -58,6 +60,14 @@ export class SkyRenderer extends Renderer {
 
     public set enable(value: boolean) {
         this._enable = value;
+    }
+
+    public set envTexture(value: WGPUTexture) {
+        this._envTexture = value;
+    }
+
+    public set isEquirectangular(value: boolean) {
+        this._isEquirectangular = value;
     }
 
     public async load(url: string) {
@@ -97,6 +107,8 @@ export class SkyRenderer extends Renderer {
             };
             this._envTexture = this._graphicsDevice.createTexture(desc, [data]);
 
+            this._isEquirectangular = true;
+
             this._createCubeMap();
         }
     }
@@ -120,6 +132,7 @@ export class SkyRenderer extends Renderer {
     }
 
     public renderEnvMap(cmd: RenderCommandBuffer, mipmapGenerator: MipmapGenerator) {
+        return;
         if (!this._envTexture || !this._skyEnvPipeline || !this._enable) {
             return;
         }
@@ -150,10 +163,12 @@ export class SkyRenderer extends Renderer {
         if (!this._skyPipeline || !this._envTexture || !this._enable) {
             return;
         }
-        this._graphicsDevice.bindPipeline(cmd, this._skyPipeline);
+        this._graphicsDevice.bindPipeline(cmd, this._isEquirectangular ? this._skyCubemapPipeline : this._skyPipeline);
         this._graphicsDevice.bindSampler(cmd, this._sampler, 0);
         this._graphicsDevice.bindResource(cmd, this._envTexture, 1);
-        this._graphicsDevice.bindResource(cmd, this._cameraUniformBuffer, 2);
+        if (this._isEquirectangular) {
+            this._graphicsDevice.bindResource(cmd, this._cameraUniformBuffer, 2);
+        }
         this._graphicsDevice.draw(cmd, 3);
     }
 
@@ -358,9 +373,10 @@ export class SkyRenderer extends Renderer {
         };
 
         {
-            const [vsFullScreen, psStaticSky] = await Promise.all([
+            const [vsFullScreen, psStaticSky, psStaticSkyCubemap] = await Promise.all([
                 this._graphicsDevice.createShader('shaders/fullscreen_vs.wgsl'),
-                this._graphicsDevice.createShader('shaders/sky/sky_static_ps.wgsl')
+                this._graphicsDevice.createShader('shaders/sky/sky_static_ps.wgsl'),
+                this._graphicsDevice.createShader('shaders/sky/sky_static_cubemap_ps.wgsl')
             ]);
 
             this._skyPipeline = this._graphicsDevice.createPipeline({
@@ -376,6 +392,21 @@ export class SkyRenderer extends Renderer {
 
                 sampleMask: 0xFFFFFFFF,
                 name: 'sky',
+            });
+
+            this._skyCubemapPipeline = this._graphicsDevice.createPipeline({
+                vs: vsFullScreen,
+                ps: psStaticSkyCubemap,
+                topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
+
+                bs,
+                rs,
+                dss,
+
+                patchControlPoints: 1,
+
+                sampleMask: 0xFFFFFFFF,
+                name: 'sky cubemap',
             });
         }
 

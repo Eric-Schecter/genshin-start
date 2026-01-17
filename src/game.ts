@@ -1,17 +1,17 @@
 import { GraphicsDevice } from "@eric-schecter/graphics";
-import { FirstPersonController, getPrimaryCamera, SceneRenderer } from "./renderer";
+import { FirstPersonController, getPrimaryCamera, SceneRenderer, scene } from "./renderer";
 import { Road } from "./road";
-import { scene } from "./renderer";
-import { BoundingBox } from "./renderer";
-import { query } from "bitecs";
 import { quat, vec3 } from "gl-matrix";
 import { ForwardController } from "./forward_controller";
 import { Column } from "./column";
+import { BackGround } from "./background";
 
 export class Game extends SceneRenderer {
     private _road: Road;
 
     private _column: Column;
+
+    private _background: BackGround;
 
     private _debug = false;
 
@@ -39,9 +39,12 @@ export class Game extends SceneRenderer {
 
         this._road = new Road();
         this._column = new Column();
+        this._background = new BackGround(this._graphicsDevice);
 
+        this._skyRenderer.envTexture = this._background.create();
+        this._skyRenderer.isEquirectangular = false;
         // this._skyRenderer.enable = false;
-        this._skyRenderer.load('images/birchwood_4k.hdr');
+        // this._skyRenderer.load('images/birchwood_4k.hdr');
         // this._skyRenderer.load('images/HDR_Light_Studio_Free_HDRI_Design_14.hdr');
 
         Promise.all([
