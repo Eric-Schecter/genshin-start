@@ -13,7 +13,7 @@ export class Game extends SceneRenderer {
 
     private _column: Column;
 
-    private _debug = true;
+    private _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -40,23 +40,23 @@ export class Game extends SceneRenderer {
         this._road = new Road();
         this._column = new Column();
 
-        this._skyRenderer.enable = false;
-        // this._skyRenderer.load('images/birchwood_4k.hdr');
+        // this._skyRenderer.enable = false;
+        this._skyRenderer.load('images/birchwood_4k.hdr');
         // this._skyRenderer.load('images/HDR_Light_Studio_Free_HDRI_Design_14.hdr');
 
         Promise.all([
             // this._modelLoader.load('models/DOOR.glb'),
             // this._modelLoader.load('models/SM_BigCloud.glb'),
             // this._modelLoader.load('models/SM_Light.glb'),
-            // this._modelLoader.load('models/SM_Qiao01.glb'),
-            // this._modelLoader.load('models/SM_Qiao02.glb'),
-            // this._modelLoader.load('models/SM_Qiao03.glb'),
-            // this._modelLoader.load('models/SM_Qiao04.glb'),
-            // this._modelLoader.load('models/SM_Road.glb'),
+            this._modelLoader.load('models/SM_Qiao01.glb'),
+            this._modelLoader.load('models/SM_Qiao02.glb'),
+            this._modelLoader.load('models/SM_Qiao03.glb'),
+            this._modelLoader.load('models/SM_Qiao04.glb'),
+            this._modelLoader.load('models/SM_Road.glb'),
             this._modelLoader.load('models/SM_ZhuZi01.glb'),
-            // this._modelLoader.load('models/SM_ZhuZi02.glb'),
-            // this._modelLoader.load('models/SM_ZhuZi03.glb'),
-            // this._modelLoader.load('models/SM_ZhuZi04.glb'),
+            this._modelLoader.load('models/SM_ZhuZi02.glb'),
+            this._modelLoader.load('models/SM_ZhuZi03.glb'),
+            this._modelLoader.load('models/SM_ZhuZi04.glb'),
             // this._modelLoader.load('models/WHITE_PLANE.glb'),
         ]).then(() => {
             this._road.onLoad();
@@ -65,9 +65,9 @@ export class Game extends SceneRenderer {
     }
 
     public update(dt: number) {
-        // this._controller.update(dt);
-        // this._road.update(dt);
-        // this._column.update(dt);
+        this._controller.update(dt);
+        this._road.update(dt);
+        this._column.update(dt);
 
         super.update(dt);
     }

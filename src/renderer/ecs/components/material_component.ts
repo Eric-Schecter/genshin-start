@@ -23,23 +23,27 @@ export type MaterialComponent = {
     dirty: boolean;
 }
 
-export const defaultTextureData: TextureData = {
-    data: new Uint8Array(),
-    width: 1,
-    height: 1,
-    name: '',
+export const createDefaultTextureData = (): TextureData => {
+    return {
+        data: new Uint8Array(),
+        width: 1,
+        height: 1,
+        name: ''
+    }
 }
 
-export const defaultMaterialComponent: MaterialComponent = {
-    diffuseTexture: defaultTextureData,
-    normalTexture: defaultTextureData,
-    occlusionTexture: defaultTextureData,
-    emissiveTexture: defaultTextureData,
-    metallicRoughnessTexture: defaultTextureData,
+export const createDefaultMaterialComponent = (): MaterialComponent => {
+    return {
+        diffuseTexture: createDefaultTextureData(),
+        normalTexture: createDefaultTextureData(),
+        occlusionTexture: createDefaultTextureData(),
+        emissiveTexture: createDefaultTextureData(),
+        metallicRoughnessTexture: createDefaultTextureData(),
 
-    baseColorFactor: vec4.create(),
-    metallicFactor: 0,
-    roughnessFactor: 1,
+        baseColorFactor: vec4.create(),
+        metallicFactor: 0,
+        roughnessFactor: 1,
 
-    dirty: true,
+        dirty: true
+    }
 }

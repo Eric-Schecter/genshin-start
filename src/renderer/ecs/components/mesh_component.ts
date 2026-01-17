@@ -19,20 +19,22 @@ export type MeshComponent = {
     dirty: boolean;
 }
 
-export const defaultMeshComponent: MeshComponent = {
-    positions: new Float32Array(),
-    normals: new Float32Array(),
-    uvs: new Float32Array(),
-    tangents: new Float32Array(),
+export const createDefaultMeshComponent = (): MeshComponent => {
+    return {
+        positions: new Float32Array(),
+        normals: new Float32Array(),
+        uvs: new Float32Array(),
+        tangents: new Float32Array(),
 
-    indices: new Uint32Array(),
+        indices: new Uint32Array(),
 
-    materialEntity: [],
+        materialEntity: [],
 
-    vertexBuffers: [],
-    indexBuffer: undefined,
+        vertexBuffers: [],
+        indexBuffer: undefined,
 
-    bbox: new BoundingBox(),
+        bbox: new BoundingBox(),
 
-    dirty: true,
+        dirty: true
+    }
 }

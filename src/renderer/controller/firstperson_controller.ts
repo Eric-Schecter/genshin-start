@@ -9,7 +9,7 @@ export class FirstPersonController extends Controller {
 
     private _isDragging = false;
 
-    private _speed = 50;
+    private _speed = 30;
 
     constructor(private _canvas: HTMLCanvasElement) {
         super();

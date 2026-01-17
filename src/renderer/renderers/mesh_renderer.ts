@@ -133,8 +133,8 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._blackTexture, 4);
             this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._blackTexture, 5);
             this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._blackTexture, 6);
-            this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._blackTexture, 7);
-            this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._blackTexture, 8);
+            this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._defaultMetalRoughnessTexture, 7);
+            this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._whiteTexture, 8);
             this._graphicsDevice.bindResource(cmd, envTexture || this._whiteTextureCube, 9);
             this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 10);
             this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 11);

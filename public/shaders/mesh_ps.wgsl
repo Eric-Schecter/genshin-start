@@ -80,9 +80,13 @@ fn env_brdf_approx(
   return specular_color * AB.x + AB.y;
 }
 
-fn applyNormalMap(uv:vec2<f32>, TBN:mat3x3<f32>) -> vec3<f32>
+fn applyNormalMap(uv:vec2<f32>, TBN:mat3x3<f32>, n: vec3<f32>) -> vec3<f32>
 {
-    var normal = vec3(textureSample(normalTexture, linearSampler, uv).rg, 1.f);
+    let normalmap = textureSample(normalTexture, linearSampler, uv);
+    if(all(normalmap == vec4(0.))){
+        return vec3(0.,0.,0.);
+    }
+    var normal = vec3(normalmap.rg, 1.f);
     normal = normal * 2.f - vec3(1.f,1.f,1.f);
     // bump color
     return normalize(mix(normal, TBN * normal, length(normal)));
@@ -99,7 +103,7 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
     let B = normalize(cross(T, input.normal) * input.tangent.w);
     let TBN = mat3x3<f32>(T, B, input.normal);
 
-    let N = applyNormalMap(input.uv, TBN);
+    let N = applyNormalMap(input.uv, TBN, input.normal);
 
     let surfaceMap = textureSample(metallicRoughnessTexture, linearSampler, input.uv);
     let roughness = surfaceMap.g;
@@ -132,5 +136,5 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     let color = applyLighting(lighting, albedo, emissive, F, occlusion);
 
-    return vec4(N,1.);
+    return color;
 }

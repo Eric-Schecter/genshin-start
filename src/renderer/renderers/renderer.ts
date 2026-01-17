@@ -12,6 +12,8 @@ export abstract class Renderer {
 
     protected _whiteTextureCube: WGPUTexture;
 
+    protected _defaultMetalRoughnessTexture: WGPUTexture;
+
     public constructor(protected _graphicsDevice: GraphicsDevice) {
         // linear sampler
         {
@@ -72,7 +74,16 @@ export abstract class Renderer {
         descBlack.name = 'black';
 
         this._blackTexture = this._graphicsDevice.createTexture(descBlack, [{
-            dataPtr: new Uint8Array([0, 0, 0, 1]),
+            dataPtr: new Uint8Array([0, 0, 0, 255]),
+            rowRitch: stride,
+            slicePitch: stride
+        }]);
+
+        const descMetalRoughness = { ...desc };
+        descBlack.name = 'metal roughness';
+
+        this._defaultMetalRoughnessTexture = this._graphicsDevice.createTexture(descMetalRoughness, [{
+            dataPtr: new Uint8Array([0, 255, 0, 255]),
             rowRitch: stride,
             slicePitch: stride
         }]);
@@ -81,7 +92,7 @@ export abstract class Renderer {
         descWhite.name = 'white';
 
         this._whiteTexture = this._graphicsDevice.createTexture(descWhite, [{
-            dataPtr: new Uint8Array([1, 1, 1, 1]),
+            dataPtr: new Uint8Array([255, 255, 255, 255]),
             rowRitch: stride,
             slicePitch: stride
         }]);
@@ -92,7 +103,7 @@ export abstract class Renderer {
         descWhiteCube.arraySize = 6;
         descWhiteCube.name = 'white cube';
         this._whiteTextureCube = this._graphicsDevice.createTexture(descWhiteCube, [{
-            dataPtr: new Uint8Array(new Array(24).fill(1)),
+            dataPtr: new Uint8Array(new Array(24).fill(255)),
             rowRitch: stride,
             slicePitch: stride
         }]);

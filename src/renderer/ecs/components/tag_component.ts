@@ -2,6 +2,6 @@ export type TagComponent = {
     tag: string;
 }
 
-export const defaultTagComponent = {
-    tag: '',
+export const creaetDefaultTagComponent = () => {
+    return { tag: '' }
 }

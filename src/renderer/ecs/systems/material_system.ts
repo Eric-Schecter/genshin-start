@@ -17,7 +17,7 @@ export class MaterialSystem {
             const { diffuseTexture, normalTexture, emissiveTexture, metallicRoughnessTexture, occlusionTexture } = materialComponent;
             this._createTextureIfNeeded(graphicsDevice, diffuseTexture).then(res => {
                 if (diffuseTexture.data.length === 0) {
-                    console.log('no diffuse texture');
+                    console.warn('no diffuse texture');
                 }
                 if (res) {
                     diffuseTexture.texture = res;
@@ -26,7 +26,7 @@ export class MaterialSystem {
             })
             this._createTextureIfNeeded(graphicsDevice, normalTexture, false).then(res => {
                 if (normalTexture.data.length === 0) {
-                    console.log('no normal texture');
+                    console.warn('no normal texture');
                 }
                 if (res) {
                     normalTexture.texture = res;
@@ -35,7 +35,7 @@ export class MaterialSystem {
             })
             this._createTextureIfNeeded(graphicsDevice, emissiveTexture).then(res => {
                 if (emissiveTexture.data.length === 0) {
-                    console.log('no emissive texture');
+                    console.warn('no emissive texture');
                 }
                 if (res) {
                     emissiveTexture.texture = res;
@@ -44,7 +44,7 @@ export class MaterialSystem {
             })
             this._createTextureIfNeeded(graphicsDevice, metallicRoughnessTexture, false).then(res => {
                 if (metallicRoughnessTexture.data.length === 0) {
-                    console.log('no metalroughness texture');
+                    console.warn('no metalroughness texture');
                 }
                 if (res) {
                     metallicRoughnessTexture.texture = res;
@@ -53,7 +53,7 @@ export class MaterialSystem {
             })
             this._createTextureIfNeeded(graphicsDevice, occlusionTexture, false).then(res => {
                 if (occlusionTexture.data.length === 0) {
-                    console.log('no occlusion texture');
+                    console.warn('no occlusion texture');
                 }
                 if (res) {
                     occlusionTexture.texture = res;

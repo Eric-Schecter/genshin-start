@@ -4,8 +4,13 @@ import draco3d from 'draco3dgltf';
 import { quat, vec2, vec3, vec4 } from 'gl-matrix';
 import { addComponent, addEntity } from 'bitecs';
 import {
-    defaultHierarchyComponent, defaultMaterialComponent, defaultMeshComponent, defaultObjectComponent, defaultTextureData,
-    defaultTransformComponent, defaultTagComponent, scene
+    creaetDefaultTransformComponent, scene,
+    createDefaultHierarchyComponent,
+    createDefaultObjectComponent,
+    creaetDefaultTagComponent,
+    createDefaultMeshComponent,
+    createDefaultTextureData,
+    createDefaultMaterialComponent
 } from './ecs';
 
 export class ModelLoader {
@@ -33,38 +38,40 @@ export class ModelLoader {
 
         const rootEntity = addEntity(scene);
         addComponent(scene, rootEntity, objects);
-        objects[rootEntity] = { ...defaultObjectComponent };
+        objects[rootEntity] = createDefaultObjectComponent();
 
         addComponent(scene, rootEntity, hierarchies);
-        hierarchies[rootEntity] = { ...defaultHierarchyComponent };
+        hierarchies[rootEntity] = createDefaultHierarchyComponent();
 
         addComponent(scene, rootEntity, transforms);
-        transforms[rootEntity] = { ...defaultTransformComponent };
+        transforms[rootEntity] = creaetDefaultTransformComponent();
 
         addComponent(scene, rootEntity, tags);
-        tags[rootEntity] = { ...defaultTagComponent, ...{ tag: this._extractFileName(url) } };
+        tags[rootEntity] = creaetDefaultTagComponent();
+        tags[rootEntity].tag = this._extractFileName(url);
 
         scenes[0].traverse((node) => {
             const objectEntity = addEntity(scene);
             addComponent(scene, objectEntity, objects);
-            objects[objectEntity] = { ...defaultObjectComponent };
+            objects[objectEntity] = createDefaultObjectComponent();
             const objectComponent = objects[objectEntity];
 
             addComponent(scene, objectEntity, transforms);
-            transforms[objectEntity] = { ...defaultTransformComponent };
+            transforms[objectEntity] = creaetDefaultTransformComponent();
             const transformComponent = transforms[objectEntity];
-            transformComponent.localMatrix = node.getMatrix();
-            transformComponent.worldMatrix = node.getWorldMatrix();
             transformComponent.scale = node.getScale();
             const rotation = node.getRotation();
             transformComponent.rotation = quat.fromValues(rotation[0], rotation[1], rotation[2], rotation[3]);
             transformComponent.translation = node.getTranslation();
 
             addComponent(scene, objectEntity, hierarchies);
-            hierarchies[objectEntity] = { ...defaultHierarchyComponent, ...{ parent: rootEntity, layer: 1 } }; // todo: layer
+            hierarchies[objectEntity] = createDefaultHierarchyComponent();
+            hierarchies[objectEntity].layer = 1;// todo: layer
+            hierarchies[objectEntity].parent = rootEntity;
 
             addComponent(scene, objectEntity, tags);
-            tags[objectEntity] = { ...defaultTagComponent, ...{ tag: node.getName() } };
+            tags[objectEntity] = creaetDefaultTagComponent();
+            tags[objectEntity].tag = node.getName();
 
             const mesh = node.getMesh();
             if (mesh) {
@@ -74,7 +81,7 @@ export class ModelLoader {
                 } else {
                     objectComponent.meshEntities = meshEntity;
                 }
-            }else{
+            } else {
                 console.log('no mesh');
             }
         })
@@ -86,7 +93,7 @@ export class ModelLoader {
         rootNode.listMaterials().forEach(material => {
             const materialEntity = addEntity(scene);
             addComponent(scene, materialEntity, materials);
-            materials[materialEntity] = { ...defaultMaterialComponent, ...{ materialEntity: [] } };
+            materials[materialEntity] = createDefaultMaterialComponent();
             const materialComponent = materials[materialEntity];
 
             materialComponent.diffuseTexture = this._createTexture(material.getBaseColorTexture());
@@ -128,9 +135,7 @@ export class ModelLoader {
                 const meshEntity = addEntity(scene);
                 meshEntities.push(meshEntity);
                 addComponent(scene, meshEntity, meshes);
-                meshes[meshEntity] = {
-                    ...defaultMeshComponent, ...{ vertexBuffers: [] }
-                };
+                meshes[meshEntity] = createDefaultMeshComponent();
                 const meshComponent = meshes[meshEntity];
 
                 const position = primitive.getAttribute('POSITION');
@@ -153,15 +158,19 @@ export class ModelLoader {
                 const normal = primitive.getAttribute('NORMAL');
                 if (normal) {
                     meshComponent.normals = new Float32Array(normal.getArray()!);
+                } else {
+                    console.warn('no normal vertex');
                 }
                 const uv0 = primitive.getAttribute('TEXCOORD_0');
                 if (uv0) {
                     meshComponent.uvs = new Float32Array(uv0.getArray()!);
+                } else {
+                    console.warn('no uv vertex');
                 }
                 const tangent = primitive.getAttribute('TANGENT');
                 if (tangent) {
                     meshComponent.tangents = new Float32Array(tangent.getArray()!);
-                } else {
+                } else if (uv0 && normal) {
                     const tangentData = this._generateTangentData(
                         this._accessorToVec3Array(position),
                         this._accessorToVec3Array(normal),
@@ -192,7 +201,7 @@ export class ModelLoader {
     }
 
     private _createTexture(texture: Texture | null) {
-        const res = { ...defaultTextureData };
+        const res = createDefaultTextureData();
         if (!texture) {
             return res;
         }

@@ -16,7 +16,7 @@ import { scene } from "../ecs";
 import { query } from "bitecs";
 
 export class SkyRenderer extends Renderer {
-    private _enable = false;
+    private _enable = true;
 
     private _envTexture: WGPUTexture;
     private _envrenderingColorTexture: WGPUTexture;

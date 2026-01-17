@@ -20,17 +20,19 @@ export type CameraComponent = {
     dirty: boolean;
 }
 
-export const defaultCameraComponent: CameraComponent = {
-    fov: 45,
-    aspect: 1,
-    near: 0.1,
-    far: 10000,
+export const createDefaultCameraComponent = (): CameraComponent => {
+    return {
+        fov: 45,
+        aspect: 1,
+        near: 0.1,
+        far: 10000,
 
-    viewMatrix: mat4.create(),
-    projMatrix: mat4.create(),
-    inverse_view_projection: mat4.create(),
+        viewMatrix: mat4.create(),
+        projMatrix: mat4.create(),
+        inverse_view_projection: mat4.create(),
 
-    isPrimary: false,
+        isPrimary: false,
 
-    dirty: true,
+        dirty: true
+    }
 }

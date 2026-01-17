@@ -16,9 +16,9 @@ export class TransformSystem {
     }
 
     private _updateLocalMatrix() {
-        const { transforms } = scene.components;
+        const { hierarchies, transforms } = scene.components;
 
-        for (const entity of query(scene, [transforms])) {
+        for (const entity of query(scene, [hierarchies, transforms])) {
             const transformComponent = transforms[entity];
             if (!transformComponent.dirty) {
                 continue;
@@ -80,6 +80,7 @@ export class TransformSystem {
 
         // update world matrix
         dirtyEntityMap.sort((a, b) => a[0] - b[0]);
+
         for (const [_, entity] of dirtyEntityMap) {
             const transformComponent = transforms[entity];
             const { parent } = hierarchies[entity];

@@ -8,8 +8,9 @@ import { SkyRenderer, Renderer, MipmapGenerator, ImageRenderer, MeshRenderer } f
 import { ModelLoader } from './model_loader';
 import { Tonemap } from './pass/tonemap';
 import {
-    CameraSystem, defaultCameraComponent, defaultTransformComponent, scene, TransformSystem,
-    MeshSystem, MaterialSystem
+    CameraSystem, creaetDefaultTransformComponent, scene, TransformSystem,
+    MeshSystem, MaterialSystem,
+    createDefaultCameraComponent
 } from "./ecs";
 import { addComponent, addEntity, query } from "bitecs";
 
@@ -184,7 +185,7 @@ export class SceneRenderer extends Renderer {
         const { cameras, transforms } = scene.components;
         const cameraEntity = addEntity(scene);
         addComponent(scene, cameraEntity, cameras);
-        cameras[cameraEntity] = { ...defaultCameraComponent };
+        cameras[cameraEntity] = createDefaultCameraComponent();
         const cameraComponent = cameras[cameraEntity];
 
         cameraComponent.isPrimary = true;
@@ -194,7 +195,7 @@ export class SceneRenderer extends Renderer {
         cameraComponent.far = 100000;
 
         addComponent(scene, cameraEntity, transforms);
-        transforms[cameraEntity] = { ...defaultTransformComponent };
+        transforms[cameraEntity] = creaetDefaultTransformComponent();
     }
 
     private _createTextures() {

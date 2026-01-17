@@ -45,7 +45,7 @@ export class Column {
         for (const entity of query(scene, [tags, transforms])) {
             if (this._markedObj.has(tags[entity].tag) &&
                 transforms[entity].translation[2] > cameraCenter[2] + 2000) {
-                transforms[entity].translation[2] += this._zLength;
+                transforms[entity].translation[2] -= this._zLength * 10;
                 transforms[entity].dirty = true;
             }
         }

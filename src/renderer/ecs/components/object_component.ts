@@ -2,6 +2,6 @@ export type ObjectComponent = {
     meshEntities: number[],
 }
 
-export const defaultObjectComponent = {
-    meshEntities: [],
+export const createDefaultObjectComponent = () => {
+    return { meshEntities: [] }
 }

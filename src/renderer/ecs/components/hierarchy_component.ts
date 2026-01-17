@@ -5,7 +5,9 @@ export type HierarchyComponent = {
     layer: number;
 }
 
-export const defaultHierarchyComponent = {
-    parent: invalid_id,
-    layer: 0,
+export const createDefaultHierarchyComponent = (): HierarchyComponent => {
+    return {
+        parent: invalid_id,
+        layer: 0
+    }
 }

@@ -12,14 +12,16 @@ export type TransformComponent = {
     dirty: boolean;
 }
 
-export const defaultTransformComponent: TransformComponent = {
-    translation: vec3.create(),
-    rotation: quat.create(),
-    scale: vec3.fromValues(1, 1, 1),
+export const creaetDefaultTransformComponent = (): TransformComponent => {
+    return {
+        translation: vec3.create(),
+        rotation: quat.create(),
+        scale: vec3.fromValues(1, 1, 1),
 
-    localMatrix: mat4.create(),
-    worldMatrix: mat4.create(),
-    normalMatrix: mat4.create(),
+        localMatrix: mat4.create(),
+        worldMatrix: mat4.create(),
+        normalMatrix: mat4.create(),
 
-    dirty: false,
+        dirty: true,
+    }
 }
