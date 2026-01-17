@@ -51,6 +51,7 @@ fn applyLighting(lighting:Lighting, color: vec3<f32>, emissive: vec3<f32>, F: ve
 {
     let diffuse = lighting.direct.diffuse / PI + lighting.indirect.diffuse * (vec3(1.f) - F) * occlusion;
     let specular = lighting.direct.specular + lighting.indirect.specular * occlusion;
+    // let specular = vec3(0.0588, 0.4314, 1.0);
 
     return vec4(color * diffuse + specular + emissive, 1.f);
 }

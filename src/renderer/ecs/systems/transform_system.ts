@@ -16,9 +16,9 @@ export class TransformSystem {
     }
 
     private _updateLocalMatrix() {
-        const { hierarchies, transforms } = scene.components;
+        const { transforms } = scene.components;
 
-        for (const entity of query(scene, [hierarchies, transforms])) {
+        for (const entity of query(scene, [transforms])) {
             const transformComponent = transforms[entity];
             if (!transformComponent.dirty) {
                 continue;
@@ -34,16 +34,6 @@ export class TransformSystem {
 
     private _updateWorldMatrix() {
         const { transforms, hierarchies } = scene.components;
-
-        // for (const entity of query(scene, [transforms])) {
-        //     const transformComponent = transforms[entity];
-        //     if (!transformComponent.dirty) {
-        //         continue;
-        //     }
-
-        //     mat4.copy(transformComponent.worldMatrix, transformComponent.localMatrix);
-        // }
-        // return;
 
         // mark dirty for children
         const dirtyEntityMap: [number, number][] = [];

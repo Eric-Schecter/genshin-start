@@ -7,7 +7,8 @@ export class ForwardController extends Controller {
     public constructor() {
         super();
 
-        this.pos = vec3.fromValues(0, 0, 1);
+        this.pos = vec3.fromValues(0, 0, 0);
+        this.focus = vec3.fromValues(0, 0, -1);
     }
 
     public getMatrix(): mat4 {

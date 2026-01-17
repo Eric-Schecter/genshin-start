@@ -27,25 +27,31 @@ export class Column {
             }
             else {
                 const clonedEntity = this._markedObj.has(Object) ? clone(entity) : entity;
-                const { transforms } = scene.components;
-                const transformComponent = transforms[clonedEntity];
-                transformComponent.scale = vec3.scale(vec3.create(), vec3.fromValues(Scale[0], Scale[2], Scale[1]), 0.1);
-                transformComponent.translation = vec3.scale(vec3.create(),vec3.fromValues(Location[0], Location[2], -Location[1]),1);
-                transformComponent.rotation = quat.fromEuler(quat.create(), Rotation[0], Rotation[2], Rotation[1]);
-                transformComponent.dirty = true;
+                const { transforms, hierarchies } = scene.components;
+                for (const entity of query(scene, [hierarchies])) {
+                    const hierarchyComponent = hierarchies[entity];
+                    if (hierarchyComponent.parent === clonedEntity) {
+                        const transformComponent = transforms[entity];
+                        transformComponent.scale = vec3.scale(vec3.create(), vec3.fromValues(Scale[0], Scale[2], Scale[1]), 0.1);
+                        transformComponent.translation = vec3.scale(vec3.create(), vec3.fromValues(Location[0], Location[2], -Location[1]), 0.1);
+                        transformComponent.rotation = quat.fromEuler(quat.create(), Rotation[0] / Math.PI * 180, Rotation[2] / Math.PI * 180, Rotation[1] / Math.PI * 180, 'xyz');
+                        transformComponent.dirty = true;
+                    }
+                }
                 this._markedObj.add(Object);
             }
         }
     }
 
     public update(dt: number) {
-        const { tags, transforms } = scene.components;
+        const { tags, hierarchies, transforms } = scene.components;
         const cameraEntity = getPrimaryCamera();
         const cameraCenter = transforms[cameraEntity].translation;
-        for (const entity of query(scene, [tags, transforms])) {
-            if (this._markedObj.has(tags[entity].tag) &&
+        for (const entity of query(scene, [tags, hierarchies, transforms])) {
+            const { parent } = hierarchies[entity];
+            if (parent !== invalid_id && this._markedObj.has(tags[parent].tag) &&
                 transforms[entity].translation[2] > cameraCenter[2] + 2000) {
-                transforms[entity].translation[2] -= this._zLength * 10;
+                transforms[entity].translation[2] -= this._zLength;
                 transforms[entity].dirty = true;
             }
         }

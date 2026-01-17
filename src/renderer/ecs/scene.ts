@@ -1,7 +1,7 @@
 import { addComponent, addEntity, createWorld, hasComponent, query, } from "bitecs";
 import {
     MaterialComponent, MeshComponent, ObjectComponent, TagComponent,
-    TransformComponent, CameraComponent, HierarchyComponent
+    TransformComponent, CameraComponent, HierarchyComponent,
 } from "./components";
 import { invalid_id } from "./constant";
 import { mat4, quat, vec3 } from "gl-matrix";
@@ -74,7 +74,6 @@ export function clone(entity: number) {
     }
 
     // clone children
-    // todo: just one layer for now
     for (const childEntity of query(scene, [hierarchies])) {
         if (hierarchies[childEntity].parent === entity) {
             const clonedChildEntity = clone(childEntity);
