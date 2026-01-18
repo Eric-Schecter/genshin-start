@@ -1,4 +1,4 @@
-import { mat4, quat, vec3 } from "gl-matrix";
+import { quat, vec3 } from "gl-matrix";
 import { MashList } from "./datas";
 import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer";
 import { query } from "bitecs";

@@ -56,9 +56,6 @@ export class Game extends SceneRenderer {
 
         this._skyRenderer.envTexture = this._background.create();
         this._skyRenderer.isEquirectangular = false;
-        // this._skyRenderer.enable = false;
-        // this._skyRenderer.load('images/birchwood_4k.hdr');
-        // this._skyRenderer.load('images/HDR_Light_Studio_Free_HDRI_Design_14.hdr');
 
         Promise.all([
             // this._modelLoader.load('models/DOOR.glb'),
