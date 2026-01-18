@@ -29,7 +29,8 @@ export class SceneRenderer extends Renderer {
 
     protected _skyRenderer: SkyRenderer;
     private _imageRenderer: ImageRenderer;
-    private _meshRenderer: MeshRenderer;
+    protected _meshRenderer: MeshRenderer;
+    protected _renderers: Renderer[] = [];
     private _mipmapGenerator: MipmapGenerator;
 
     private _tonemap: Tonemap;
@@ -69,6 +70,8 @@ export class SceneRenderer extends Renderer {
 
         this._time = performance.now();
 
+        this._renderers.push(this._meshRenderer, this._skyRenderer);
+
         const observer = new ResizeObserver(entries => {
             const { limits: { maxTextureDimension2D } } = this._graphicsDevice;
             for (const entry of entries) {
@@ -107,8 +110,9 @@ export class SceneRenderer extends Renderer {
         this._needUpdate += this._cameraSystem.update(this._graphicsDevice, this._controller, dt);
         this._needUpdate += this._transformSystem.update();
 
-        this._skyRenderer.update();
-        this._meshRenderer.update();
+        this._renderers.forEach(renderer=>renderer.update(dt));
+
+        this._meshRenderer.envTexture = this._skyRenderer.envrenderingColorTextureFiltered;
     }
 
     public render(): void {
@@ -153,9 +157,7 @@ export class SceneRenderer extends Renderer {
             RenderPassImage.depthStencil({ resource: this._depthStencilTexture, load_op: EN_LOAD_OP.CLEAR })]
         );
 
-        this._meshRenderer.render(cmd, this._skyRenderer.envrenderingColorTextureFiltered);
-
-        this._skyRenderer.render(cmd);
+        this._renderers.forEach(renderer => renderer.render(cmd));
 
         this._graphicsDevice.endRenderPass(cmd);
         this._graphicsDevice.endEvent(cmd);

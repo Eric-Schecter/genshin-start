@@ -20,7 +20,9 @@ export type MaterialComponent = {
     metallicFactor: number,
     roughnessFactor: number,
 
-    dirty: boolean;
+    type: string,
+
+    dirty: boolean,
 }
 
 export const createDefaultTextureData = (): TextureData => {
@@ -43,6 +45,8 @@ export const createDefaultMaterialComponent = (): MaterialComponent => {
         baseColorFactor: vec4.create(),
         metallicFactor: 0,
         roughnessFactor: 1,
+
+        type: 'default',
 
         dirty: true
     }

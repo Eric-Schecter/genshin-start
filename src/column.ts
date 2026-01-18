@@ -2,13 +2,12 @@ import { quat, vec3 } from "gl-matrix";
 import { MashList } from "./datas";
 import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer";
 import { query } from "bitecs";
+import { zLength } from "./constant";
 
 export class Column {
     private _prefab = new Map<string, number>(); // not real prefab
 
     private _markedObj = new Set<string>();
-
-    private _zLength = 20600;
 
     public onload() {
         for (let i = 0; i < MashList.length; i++) {
@@ -51,7 +50,7 @@ export class Column {
             const { parent } = hierarchies[entity];
             if (parent !== invalid_id && this._markedObj.has(tags[parent].tag) &&
                 transforms[entity].translation[2] > cameraCenter[2] + 2000) {
-                transforms[entity].translation[2] -= this._zLength;
+                transforms[entity].translation[2] -= zLength * 0.1;
                 transforms[entity].dirty = true;
             }
         }

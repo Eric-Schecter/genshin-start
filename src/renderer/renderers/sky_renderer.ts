@@ -9,11 +9,11 @@ import {
 } from "@eric-schecter/graphics";
 import { Renderer } from "./renderer";
 import { mat4, vec3, vec4, glMatrix } from "gl-matrix";
-import HDRjs from 'hdr.js';
 import { MipmapGenerator } from "./mipmap_generator";
 import { GENERATEMIPCHAIN_2D_BLOCK_SIZE } from "./constant";
 import { scene } from "../ecs";
 import { query } from "bitecs";
+import { imageLoader } from "../image_loader";
 
 export class SkyRenderer extends Renderer {
     private _enable = true;
@@ -71,10 +71,10 @@ export class SkyRenderer extends Renderer {
     }
 
     public async load(url: string) {
-        const res = await HDRjs.load(url).then(res => res).catch(err => console.error(err));
+        const res = await imageLoader.loadHDR(url);
 
-        if (res) {
-            const { width, height, rgbFloat } = res;
+        if (res.data.length > 0) {
+            const { width, height, data: rgba } = res;
 
             const desc: TextureDesc = {
                 type: EN_TEX_TYPE.TEXTURE_2D,
@@ -93,13 +93,6 @@ export class SkyRenderer extends Renderer {
                 name: url,
             };
 
-            const rgba = new Float32Array(width * height * 4);
-            for (let i = 0; i < width * height; i++) {
-                rgba[i * 4 + 0] = rgbFloat[i * 3 + 0]; // R
-                rgba[i * 4 + 1] = rgbFloat[i * 3 + 1]; // G
-                rgba[i * 4 + 2] = rgbFloat[i * 3 + 2]; // B
-                rgba[i * 4 + 3] = 1.0;                // A
-            }
             const data: SubresourceData = {
                 dataPtr: rgba,
                 rowRitch: width * getFormatStride(desc.format),
@@ -132,8 +125,8 @@ export class SkyRenderer extends Renderer {
     }
 
     public renderEnvMap(cmd: RenderCommandBuffer, mipmapGenerator: MipmapGenerator) {
-        return;
-        if (!this._envTexture || !this._skyEnvPipeline || !this._enable) {
+        if (!this._envTexture || !this._skyEnvPipeline
+            || !this._enable || !this._envrenderingColorTexture) {
             return;
         }
         this._setupEnvCameras();

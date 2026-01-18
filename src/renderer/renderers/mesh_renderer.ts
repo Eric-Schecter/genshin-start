@@ -18,6 +18,8 @@ export class MeshRenderer extends Renderer {
 
     private _renderBatch = new Map<number, number[]>(); // mesh entity -> object entities
 
+    private _envTexture?: WGPUTexture;
+
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
 
@@ -25,7 +27,7 @@ export class MeshRenderer extends Renderer {
 
         const maxCount = 10000;
         this._instanceStorageBuffer = graphicsDevice.createBuffer({
-            size: maxCount * 4 * 4 * 4 * 2,
+            size: maxCount * 4 * 4 * 4 * 4,
             name: 'instance storage buffer',
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
@@ -49,9 +51,13 @@ export class MeshRenderer extends Renderer {
 
     }
 
+    public set envTexture(value: WGPUTexture) {
+        this._envTexture = value;
+    }
+
     public update() {
         // todo: add dirty mark
-        const { objects, transforms } = scene.components;
+        const { objects, transforms, materials, meshes } = scene.components;
 
         this._renderBatch.clear();
 
@@ -60,6 +66,10 @@ export class MeshRenderer extends Renderer {
             const meshEntities = objectComponent?.meshEntities;
 
             for (const meshEntity of meshEntities) {
+                // todo
+                if (materials[meshes[meshEntity].materialEntity[0]].type !== 'default') {
+                    continue;
+                }
                 if (!this._renderBatch.has(meshEntity)) {
                     this._renderBatch.set(meshEntity, [entity]);
                 } else {
@@ -90,7 +100,7 @@ export class MeshRenderer extends Renderer {
         this._instanceStorageBuffer.update(data);
     }
 
-    public render(cmd: RenderCommandBuffer, envTexture: WGPUTexture) {
+    public render(cmd: RenderCommandBuffer) {
         if (!this._pipeline) {
             return;
         }
@@ -130,12 +140,12 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._paramsBuffer[drawcall], 2);
             this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
-            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._blackTexture, 4);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._whiteTexture, 4);
             this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._blackTexture, 5);
             this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._blackTexture, 6);
             this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._defaultMetalRoughnessTexture, 7);
             this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._whiteTexture, 8);
-            this._graphicsDevice.bindResource(cmd, envTexture || this._whiteTextureCube, 9);
+            this._graphicsDevice.bindResource(cmd, this._envTexture || this._whiteTextureCube, 9);
             this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 10);
             this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 11);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, objectEntities.length);
@@ -144,7 +154,7 @@ export class MeshRenderer extends Renderer {
             entityCount += objectEntities.length;
         }
 
-        console.log(`drawcall: ${drawcall}, entity: ${entityCount}`);
+        // console.log(`drawcall: ${drawcall}, entity: ${entityCount}`);
     }
 
     private async _setupPipeline() {

@@ -1,6 +1,6 @@
 import {
     EN_BIND_FLAG, EN_COMPARISION_FUNC, EN_FILTER, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_SAMPLER_BORDER_COLOR, EN_TEX_TYPE, EN_TEXTURE_ADDRESS_MODE,
-    EN_USAGE, getFormatStride, GPUBufferDesc, GraphicsDevice, Sampler, SamplerDesc, TextureDesc, WGPUTexture
+    EN_USAGE, getFormatStride, GPUBufferDesc, GraphicsDevice, RenderCommandBuffer, Sampler, SamplerDesc, TextureDesc, WGPUTexture
 } from "@eric-schecter/graphics";
 
 export abstract class Renderer {
@@ -35,6 +35,9 @@ export abstract class Renderer {
 
         this._createDummyTextures();
     }
+
+    public abstract update(dt: number): void;
+    public abstract render(cmd: RenderCommandBuffer): void;
 
     protected _setupUniformBuffer(data: number[], name = '') {
         const color = new Float32Array(data);

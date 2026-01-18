@@ -1,7 +1,7 @@
 import { Material, Mesh, Root, Texture, WebIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import draco3d from 'draco3dgltf';
-import { quat, vec2, vec3, vec4 } from 'gl-matrix';
+import { quat, vec2, vec3 } from 'gl-matrix';
 import { addComponent, addEntity } from 'bitecs';
 import {
     creaetDefaultTransformComponent, scene,
@@ -9,14 +9,24 @@ import {
     createDefaultObjectComponent,
     creaetDefaultTagComponent,
     createDefaultMeshComponent,
-    createDefaultTextureData,
-    createDefaultMaterialComponent
+    createDefaultMaterialComponent,
+    invalid_id,
+    clone,
 } from './ecs';
+import { createTexture, generateTangentData, vec4ArrayToFloat32Array } from './utils';
 
 export class ModelLoader {
-    public constructor() { }
+    private _cached = new Map<string, number>();
 
-    public async load(url: string) {
+    public async load(url: string): Promise<number> {
+        if (this._cached.has(url)) {
+            const entity = this._cached.get(url);
+            if (entity === undefined) {
+                console.error('get model failed');
+                return invalid_id;
+            }
+            return clone(entity);
+        }
         const io = new WebIO()
             .registerExtensions(ALL_EXTENSIONS)
             .registerDependencies({
@@ -85,6 +95,8 @@ export class ModelLoader {
                 console.log('no mesh');
             }
         })
+
+        return rootEntity;
     }
 
     private _prepareMaterials(rootNode: Root) {
@@ -171,13 +183,13 @@ export class ModelLoader {
                 if (tangent) {
                     meshComponent.tangents = new Float32Array(tangent.getArray()!);
                 } else if (uv0 && normal) {
-                    const tangentData = this._generateTangentData(
+                    const tangentData = generateTangentData(
                         this._accessorToVec3Array(position),
                         this._accessorToVec3Array(normal),
                         this._accessorToVec2Array(uv0),
                         this._accessorToIndexArray(indices));
 
-                    meshComponent.tangents = this._vec4ArrayToFloat32Array(tangentData);
+                    meshComponent.tangents = vec4ArrayToFloat32Array(tangentData);
                 }
                 meshComponent.indices = new Uint32Array(indices.getArray()!);
 
@@ -201,26 +213,8 @@ export class ModelLoader {
     }
 
     private _createTexture(texture: Texture | null) {
-        const res = createDefaultTextureData();
-        if (!texture) {
-            return res;
-        }
-        const size = texture.getSize();
-        if (!size) {
-            throw new Error('get image size failed');
-        }
-        const [width, height] = size;
-
-        const imageData = texture.getImage() as Uint8Array;
-
-        res.width = width;
-        res.height = height;
-        res.data = imageData;
-        res.name = texture.getName();
-
-        return res;
+        return createTexture(texture?.getImage(), texture?.getSize(), texture?.getName());
     }
-
     private _accessorToVec3Array(accessor: any): vec3[] {
         const arr = accessor.getArray(); // Float32Array
         const count = accessor.getCount();
@@ -250,112 +244,5 @@ export class ModelLoader {
     private _accessorToIndexArray(accessor: any): number[] {
         const arr = accessor.getArray(); // Uint16Array / Uint32Array
         return Array.from(arr);
-    }
-
-    private _vec4ArrayToFloat32Array(tangents: vec4[]): Float32Array<ArrayBuffer> {
-        const arr = new Float32Array(tangents.length * 4);
-        for (let i = 0; i < tangents.length; i++) {
-            arr[i * 4 + 0] = tangents[i][0];
-            arr[i * 4 + 1] = tangents[i][1];
-            arr[i * 4 + 2] = tangents[i][2];
-            arr[i * 4 + 3] = tangents[i][3];
-        }
-        return arr;
-    }
-
-    private _generateTangentData(
-        positions: vec3[],
-        normals: vec3[],
-        uvs: vec2[],
-        indices: number[]
-    ): vec4[] {
-        const tangents: vec4[] = new Array(positions.length)
-            .fill(0)
-            .map(() => vec4.create());
-
-        for (let i = 0; i < indices.length; i += 3) {
-            const i0 = indices[i + 0];
-            const i1 = indices[i + 1];
-            const i2 = indices[i + 2];
-
-            const v0 = positions[i0];
-            const v1 = positions[i1];
-            const v2 = positions[i2];
-
-            let uv0 = vec2.clone(uvs[i0]);
-            let uv1 = vec2.clone(uvs[i1]);
-            let uv2 = vec2.clone(uvs[i2]);
-
-            uv0[1] *= -1;
-            uv1[1] *= -1;
-            uv2[1] *= -1;
-
-            const n0 = normals[i0];
-            const n1 = normals[i1];
-            const n2 = normals[i2];
-
-            const facenormal = vec3.create();
-            vec3.add(facenormal, n0, n1);
-            vec3.add(facenormal, facenormal, n2);
-            vec3.normalize(facenormal, facenormal);
-
-            const e1 = vec3.create();
-            const e2 = vec3.create();
-            vec3.subtract(e1, v1, v0);
-            vec3.subtract(e2, v2, v0);
-
-            const s1 = uv1[0] - uv0[0];
-            const s2 = uv2[0] - uv0[0];
-            const t1 = uv1[1] - uv0[1];
-            const t2 = uv2[1] - uv0[1];
-
-            const denom = s1 * t2 - s2 * t1;
-            if (Math.abs(denom) < 1e-8) {
-                console.warn('Denom is zero when generating tangents');
-                continue;
-            }
-
-            const r = 1.0 / denom;
-
-            const sdir = vec3.create();
-            const tdir = vec3.create();
-
-            const tmp1 = vec3.create();
-            const tmp2 = vec3.create();
-            vec3.scale(tmp1, e1, t2);
-            vec3.scale(tmp2, e2, t1);
-            vec3.subtract(sdir, tmp1, tmp2);
-            vec3.scale(sdir, sdir, r);
-
-            vec3.scale(tmp1, e2, s1);
-            vec3.scale(tmp2, e1, s2);
-            vec3.subtract(tdir, tmp1, tmp2);
-            vec3.scale(tdir, tdir, r);
-
-            const tangent = vec3.create();
-            const dot = vec3.dot(facenormal, sdir);
-            vec3.scale(tmp1, facenormal, dot);
-            vec3.subtract(tangent, sdir, tmp1);
-            vec3.normalize(tangent, tangent);
-
-            const cross = vec3.create();
-            vec3.cross(cross, tangent, facenormal);
-            const sign = vec3.dot(cross, tdir) < 0 ? -1 : 1;
-
-            const t = vec4.fromValues(tangent[0], tangent[1], tangent[2], sign);
-
-            for (const idx of [i0, i1, i2]) {
-                vec4.add(tangents[idx], tangents[idx], t);
-            }
-        }
-
-        for (let i = 0; i < tangents.length; i++) {
-            const t = tangents[i];
-            const tangentVec = vec3.fromValues(t[0], t[1], t[2]);
-            vec3.normalize(tangentVec, tangentVec);
-            tangents[i] = vec4.fromValues(tangentVec[0], tangentVec[1], tangentVec[2], t[3]);
-        }
-
-        return tangents;
     }
 }

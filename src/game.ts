@@ -5,6 +5,7 @@ import { quat, vec3 } from "gl-matrix";
 import { ForwardController } from "./forward_controller";
 import { Column } from "./column";
 import { BackGround } from "./background";
+import { Cloud } from "./cloud";
 
 export class Game extends SceneRenderer {
     private _road: Road;
@@ -13,7 +14,9 @@ export class Game extends SceneRenderer {
 
     private _background: BackGround;
 
-    private _debug = false;
+    private _cloud: Cloud;
+
+    private _debug = true;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -40,6 +43,9 @@ export class Game extends SceneRenderer {
         this._road = new Road();
         this._column = new Column();
         this._background = new BackGround(this._graphicsDevice);
+        this._cloud = new Cloud(graphicsDevice);
+
+        this._renderers.push(this._cloud);
 
         this._skyRenderer.envTexture = this._background.create();
         this._skyRenderer.isEquirectangular = false;
@@ -64,6 +70,7 @@ export class Game extends SceneRenderer {
         ]).then(() => {
             this._road.onLoad();
             this._column.onload();
+            this._cloud.onload();
         });
     }
 

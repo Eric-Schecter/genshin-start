@@ -78,6 +78,7 @@ export class MaterialSystem {
         }
 
         const { width, height, data, name } = textureData;
+
         const desc: TextureDesc = {
             type: EN_TEX_TYPE.TEXTURE_2D,
             width,
@@ -98,7 +99,11 @@ export class MaterialSystem {
         const buffer = data.slice();
 
         const blob = new Blob([buffer], { type: 'application/octet-stream' });
-        const imageBitmap = await createImageBitmap(blob);
+
+        const imageBitmap = await createImageBitmap(blob).catch(err => console.error(err));
+        if (!imageBitmap) {
+            return;
+        }
 
         const canvas = new OffscreenCanvas(width, height);
         const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D;
