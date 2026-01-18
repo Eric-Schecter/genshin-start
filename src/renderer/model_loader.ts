@@ -118,6 +118,8 @@ export class ModelLoader {
             materialComponent.metallicFactor = material.getMetallicFactor();
             materialComponent.roughnessFactor = material.getRoughnessFactor();
 
+            materialComponent.name = material.getName();
+
             const specGlossExtension = material.getExtension('KHR_materials_pbrSpecularGlossiness');
             if (specGlossExtension) {
                 console.log('  This material uses the Specular/Glossiness workflow.');
@@ -149,6 +151,8 @@ export class ModelLoader {
                 addComponent(scene, meshEntity, meshes);
                 meshes[meshEntity] = createDefaultMeshComponent();
                 const meshComponent = meshes[meshEntity];
+
+                meshComponent.name = primitive.getName();
 
                 const position = primitive.getAttribute('POSITION');
                 if (!position) {

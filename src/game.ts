@@ -6,6 +6,7 @@ import { ForwardController } from "./forward_controller";
 import { Column } from "./column";
 import { BackGround } from "./background";
 import { Cloud } from "./cloud";
+import { BigCloud } from "./big_cloud";
 
 export class Game extends SceneRenderer {
     private _road: Road;
@@ -16,7 +17,9 @@ export class Game extends SceneRenderer {
 
     private _cloud: Cloud;
 
-    private _debug = true;
+    private _bigCloud: BigCloud;
+
+    private _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -44,8 +47,12 @@ export class Game extends SceneRenderer {
         this._column = new Column();
         this._background = new BackGround(this._graphicsDevice);
         this._cloud = new Cloud(graphicsDevice);
+        this._bigCloud = new BigCloud(graphicsDevice);
 
-        this._renderers.push(this._cloud);
+        this._renderers.push(
+            this._cloud,
+            this._bigCloud
+        );
 
         this._skyRenderer.envTexture = this._background.create();
         this._skyRenderer.isEquirectangular = false;
@@ -55,8 +62,8 @@ export class Game extends SceneRenderer {
 
         Promise.all([
             // this._modelLoader.load('models/DOOR.glb'),
-            // this._modelLoader.load('models/SM_BigCloud.glb'),
-            // this._modelLoader.load('models/SM_Light.glb'),
+            this._modelLoader.load('models/SM_BigCloud.glb'),
+            this._modelLoader.load('models/SM_Light.glb'),
             this._modelLoader.load('models/SM_Qiao01.glb'),
             this._modelLoader.load('models/SM_Qiao02.glb'),
             this._modelLoader.load('models/SM_Qiao03.glb'),
@@ -71,6 +78,7 @@ export class Game extends SceneRenderer {
             this._road.onLoad();
             this._column.onload();
             this._cloud.onload();
+            this._bigCloud.onload();
         });
     }
 

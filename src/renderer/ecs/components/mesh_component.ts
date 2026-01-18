@@ -16,6 +16,8 @@ export type MeshComponent = {
 
     bbox: BoundingBox;
 
+    name: string;
+
     dirty: boolean;
 }
 
@@ -35,6 +37,8 @@ export const createDefaultMeshComponent = (): MeshComponent => {
 
         bbox: new BoundingBox(),
 
+        name: '',
+        
         dirty: true
     }
 }

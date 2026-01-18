@@ -27,7 +27,7 @@ export class MeshRenderer extends Renderer {
 
         const maxCount = 10000;
         this._instanceStorageBuffer = graphicsDevice.createBuffer({
-            size: maxCount * 4 * 4 * 4 * 4,
+            size: maxCount * 64 * 4,
             name: 'instance storage buffer',
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
@@ -67,7 +67,11 @@ export class MeshRenderer extends Renderer {
 
             for (const meshEntity of meshEntities) {
                 // todo
-                if (materials[meshes[meshEntity].materialEntity[0]].type !== 'default') {
+                const materialEntities = meshes[meshEntity].materialEntity;
+                if (materialEntities.length === 0) {
+                    continue;
+                }
+                if (materials[materialEntities[0]].type !== 'default') {
                     continue;
                 }
                 if (!this._renderBatch.has(meshEntity)) {

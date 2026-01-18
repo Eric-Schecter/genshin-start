@@ -1,4 +1,4 @@
-import { quat, vec3 } from "gl-matrix";
+import { mat4, quat, vec3 } from "gl-matrix";
 import { MashList } from "./datas";
 import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer";
 import { query } from "bitecs";
@@ -48,10 +48,12 @@ export class Column {
         const cameraCenter = transforms[cameraEntity].translation;
         for (const entity of query(scene, [tags, hierarchies, transforms])) {
             const { parent } = hierarchies[entity];
-            if (parent !== invalid_id && this._markedObj.has(tags[parent].tag) &&
-                transforms[entity].translation[2] > cameraCenter[2] + 2000) {
-                transforms[entity].translation[2] -= zLength * 0.1;
-                transforms[entity].dirty = true;
+            if (parent !== invalid_id && this._markedObj.has(tags[parent].tag)) {
+                // const worldPos = mat4.getTranslation(vec3.create(), transforms[entity].worldMatrix);
+                if (transforms[entity].translation[2] > cameraCenter[2] + 2000) {
+                    transforms[entity].translation[2] -= zLength * 0.1;
+                    transforms[entity].dirty = true;
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { CloudList } from "./datas";
 import { BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer } from "@eric-schecter/graphics";
 import { clone, scene, Renderer, imageLoader, Plane, getPrimaryCamera, invalid_id, TransformComponent } from "./renderer";
@@ -8,8 +8,6 @@ export class Cloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
 
     private _instanceStorageBuffer: WGPUBuffer;
-
-    private _paramsBuffer: WGPUBuffer;
 
     private _cloudEntities: number[] = []; // mesh entity -> object entities
 
@@ -22,23 +20,13 @@ export class Cloud extends Renderer {
 
         const maxCount = CloudList.length;
         this._instanceStorageBuffer = this._graphicsDevice.createBuffer({
-            size: maxCount * 4 * 4 * 4 * 4,
+            size: maxCount * 64 * 4,
             name: 'instance storage buffer',
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
             miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
             stride: 0,
             count: maxCount,
-        });
-
-        this._paramsBuffer = this._graphicsDevice.createBuffer({
-            size: 4 * 4,
-            name: 'params buffer',
-            usage: EN_USAGE.DEFAULT,
-            bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
-            count: 1,
         });
     }
 
@@ -92,6 +80,7 @@ export class Cloud extends Renderer {
         const primaryCameraEntity = getPrimaryCamera();
         const cameraCenter = transforms[primaryCameraEntity].translation[2];
 
+        // const worldPos = mat4.getTranslation(vec3.create(), this._posList[this._posList.length - 1].worldMatrix);
         if (this._posList[this._posList.length - 1].translation[2] > cameraCenter) {
             let firstElement = this._posList.pop();
             if (firstElement) {
@@ -146,15 +135,13 @@ export class Cloud extends Renderer {
         const { diffuseTexture } = materialComponent;
         const { vertexBuffers, indexBuffer } = meshComponent;
 
-        this._paramsBuffer.update(new Uint32Array([0, 0, 0, 0]));
-
         this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
         this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32, 0);
         this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
         this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
+        this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 2);
         this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
         this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._whiteTexture, 4);
-        this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 11);
         this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, this._posList.length);
     }
 

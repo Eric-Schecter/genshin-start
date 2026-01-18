@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer/ecs";
 import { query } from "bitecs";
 import { Tween, Easing } from '@tweenjs/tween.js';
@@ -80,6 +80,7 @@ export class Road {
             for (let i = 0; i < this._children.length; i++) {
                 const childEntity = this._children[i];
                 const transformComponent = transforms[childEntity];
+                // const worldPos = mat4.getTranslation(vec3.create(), transformComponent.worldMatrix); // todo: has bug
                 const childPosition = transformComponent.translation;
                 if (childPosition[2] > cameraCenter[2]) {
                     if (i % this.RoadUnitLength == 0 && this.hasStartGame) {

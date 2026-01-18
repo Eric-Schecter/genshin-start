@@ -22,6 +22,8 @@ export type MaterialComponent = {
 
     type: string,
 
+    name: string,
+
     dirty: boolean,
 }
 
@@ -47,6 +49,8 @@ export const createDefaultMaterialComponent = (): MaterialComponent => {
         roughnessFactor: 1,
 
         type: 'default',
+
+        name: '',
 
         dirty: true
     }
