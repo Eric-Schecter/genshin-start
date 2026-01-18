@@ -23,13 +23,25 @@ struct VertexOutput {
     @location(3) tangent: vec4<f32>,
 };
 
+fn random(st:vec2<f32>)->f32 {
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+}
+
 @vertex
 fn main(input: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     let modelMatrix = instances[input.instance_idx].modelMatrix;
     let world_pos = (modelMatrix * vec4<f32>(input.position, 1.0)).xyz;
+    let instPosition = modelMatrix[3].xyz;
+
+    let wh = vec2(2.,4.);
+    let rn = ceil(random(instPosition.xy)*wh.x*wh.y);
+    let cell = vec2(1.,1.)/wh;
+    var vUv = input.uv/wh;
+    vUv+=vec2(cell.x*(rn % wh.x),cell.y*(ceil(rn/wh.x)-1.));
+
     out.position = proj * view * vec4(world_pos, 1.0);
-    out.uv = input.uv;
+    out.uv = vUv;
     return out;
 }
 
