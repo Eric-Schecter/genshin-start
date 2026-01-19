@@ -1,12 +1,13 @@
 import { GraphicsDevice } from "@eric-schecter/graphics";
+import { quat, vec3 } from "gl-matrix";
 import { FirstPersonController, getPrimaryCamera, SceneRenderer, scene } from "./renderer";
 import { Road } from "./road";
-import { quat, vec3 } from "gl-matrix";
 import { ForwardController } from "./forward_controller";
 import { Column } from "./column";
 import { BackGround } from "./background";
 import { Cloud } from "./cloud";
 import { BigCloud } from "./big_cloud";
+import { Fog } from "./fog";
 
 export class Game extends SceneRenderer {
     private _road: Road;
@@ -19,7 +20,9 @@ export class Game extends SceneRenderer {
 
     private _bigCloud: BigCloud;
 
-    private _debug = false;
+    private _fog: Fog;
+
+    private _debug = true;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -48,10 +51,12 @@ export class Game extends SceneRenderer {
         this._background = new BackGround(this._graphicsDevice);
         this._cloud = new Cloud(graphicsDevice);
         this._bigCloud = new BigCloud(graphicsDevice);
+        this._fog = new Fog(graphicsDevice);
 
         this._renderers.push(
             this._cloud,
-            this._bigCloud
+            this._bigCloud,
+            this._fog,
         );
 
         this._skyRenderer.envTexture = this._background.create();

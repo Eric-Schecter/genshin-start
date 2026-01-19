@@ -27,9 +27,10 @@ struct VertexOutput {
 fn main(input: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     let modelMatrix = instances[input.instance_idx].modelMatrix;
-    let world_pos = (modelMatrix * vec4<f32>(input.position, 1.0)).xyz;
-    out.position = proj * view * vec4(world_pos, 1.0);
+    let world_pos = (modelMatrix * vec4<f32>(input.position, 1.0));
+    out.position = proj * view * vec4(world_pos.xyz, 1.0);
     out.uv = input.uv;
+    out.world_pos = world_pos;
     return out;
 }
 

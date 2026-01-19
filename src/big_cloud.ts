@@ -171,7 +171,7 @@ export class BigCloud extends Renderer {
     private async _setupPipeline() {
 
         const [vs, ps, bg_ps] = await Promise.all([
-            this._graphicsDevice.createShader('shaders/cloud/simple_vs.wgsl'),
+            this._graphicsDevice.createShader('shaders/simple_vs.wgsl'),
             this._graphicsDevice.createShader('shaders/cloud/big_cloud_ps.wgsl'),
             this._graphicsDevice.createShader('shaders/cloud/big_cloud_bg_ps.wgsl'),
         ]);

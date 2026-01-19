@@ -39,7 +39,7 @@ export class MeshRenderer extends Renderer {
         // todo: change to dynamic size
         for (let i = 0; i < maxCount; i++) {
             this._paramsBuffer[i] = graphicsDevice.createBuffer({
-                size: 4 * 4,
+                size: 4,
                 name: 'params buffer',
                 usage: EN_USAGE.DEFAULT,
                 bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
@@ -136,7 +136,7 @@ export class MeshRenderer extends Renderer {
             const { diffuseTexture, normalTexture, metallicRoughnessTexture, emissiveTexture, occlusionTexture } = materialComponent;
             const { vertexBuffers, indexBuffer } = meshComponent;
 
-            this._paramsBuffer[drawcall].update(new Uint32Array([entityCount, 0, 0, 0]));
+            this._paramsBuffer[drawcall].update(new Uint32Array([entityCount]));
 
             this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
             this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32, 0);

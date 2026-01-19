@@ -7,7 +7,7 @@ import { generateTangentData, vec4ArrayToFloat32Array } from "../utils";
 import { vec2, vec3 } from "gl-matrix";
 
 export class Plane {
-    public static create() {
+    public static create(width = 1, height = 1) {
         const { objects, transforms, hierarchies, tags, meshes, materials } = scene.components;
 
         const entity = addEntity(scene);
@@ -19,6 +19,7 @@ export class Plane {
 
         addComponent(scene, entity, transforms);
         transforms[entity] = creaetDefaultTransformComponent();
+        transforms[entity].scale = vec3.fromValues(width, height, 1);
 
         addComponent(scene, entity, tags);
         tags[entity] = creaetDefaultTagComponent();
