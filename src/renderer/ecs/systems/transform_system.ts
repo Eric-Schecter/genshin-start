@@ -86,7 +86,7 @@ export class TransformSystem {
             // todo: update pre worldmatrix
         }
 
-        for (const entity of query(scene, [hierarchies, transforms])) {
+        for (const entity of query(scene, [transforms])) {
             transforms[entity].dirty = false;
         }
 

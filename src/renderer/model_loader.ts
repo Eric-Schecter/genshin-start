@@ -1,5 +1,7 @@
 import { Material, Mesh, Root, Texture, WebIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+// import { tangents } from '@gltf-transform/functions';
+// import { generateTangents } from 'mikktspace';
 import draco3d from 'draco3dgltf';
 import { quat, vec2, vec3 } from 'gl-matrix';
 import { addComponent, addEntity } from 'bitecs';
@@ -34,6 +36,10 @@ export class ModelLoader {
                 'draco3d.encoder': await draco3d.createEncoderModule(),
             });
         const document = await io.read(url);
+
+        // await document.transform(
+        //     tangents()
+        // ).catch(err => console.error(err));
 
         const rootNode = document.getRoot();
 

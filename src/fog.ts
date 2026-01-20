@@ -65,6 +65,8 @@ export class Fog extends Renderer {
         const { transforms } = scene.components;
 
         const primaryCameraEntity = getPrimaryCamera();
+        // todo: enable dirty mark
+        // if (transforms[primaryCameraEntity].dirty) {
         const cameraCenter = transforms[primaryCameraEntity].translation[2];
 
         // todo: delay update?
@@ -74,6 +76,7 @@ export class Fog extends Renderer {
         transformComponent.dirty = true;
 
         this._instanceStorageBuffer.update(new Float32Array(worldMatrix));
+        // }
 
         this._time += dt;
         this._paramsBuffer.update(new Float32Array([this._time]));

@@ -21,7 +21,7 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) normal: vec3<f32>,
     @location(1) uv: vec2<f32>,
-    @location(2) world_pos: vec4<f32>,
+    @location(2) world_pos: vec3<f32>,
     @location(3) tangent: vec4<f32>,
 };
 
@@ -35,7 +35,7 @@ fn main(input: VertexInput) -> VertexOutput {
     out.position = proj * view * vec4(world_pos, 1.0);
     out.normal = world_normal;
     out.uv = input.uv;
-    out.world_pos = out.position;
+    out.world_pos = world_pos;
     out.tangent = input.tangent;
     return out;
 }

@@ -1,7 +1,7 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = (config) => {
     delete config.devServer.static;
-    const {resolve} = require('path');
+    const { resolve } = require('path');
     const htmlPlugin = config.plugins.find((plugin) => plugin instanceof HtmlWebpackPlugin);
     if (htmlPlugin) {
         htmlPlugin.userOptions = {
@@ -24,13 +24,18 @@ module.exports = (config) => {
     );
 
     // config.module.rules.push({
-    //     test: /\.css$/,
-    //     use: ['style-loader', 'css-loader'],
+    //     test: /\.wasm$/,
+    //     type: 'webassembly/async',
     // });
 
     config.resolve.alias = {
         '@': resolve(__dirname, './src')
     };
+
+    // config.experiments = {
+    //     ...config.experiments,
+    //     asyncWebAssembly: true,
+    // }
 
     return config;
 };

@@ -23,7 +23,7 @@ export class FirstPersonController extends Controller {
         let x = 0;
         let z = 0;
 
-        const speed = this._speed * dt * 1000;
+        const speed = this._speed * dt * 10;
 
         if (this._keysPressed.has('w')) z -= speed;
         if (this._keysPressed.has('s')) z += speed;

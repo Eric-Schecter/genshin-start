@@ -86,9 +86,10 @@ export class BigCloud extends Renderer {
         }
 
         const cameraEntity = getPrimaryCamera();
-
-        transforms[this._bigCloudEntity].translation = transforms[cameraEntity].translation;
-        transforms[this._bigCloudEntity].dirty = true;
+        if (transforms[cameraEntity].dirty) {
+            transforms[this._bigCloudEntity].translation = transforms[cameraEntity].translation;
+            transforms[this._bigCloudEntity].dirty = true;
+        }
     }
 
     public render(cmd: RenderCommandBuffer) {

@@ -7,27 +7,36 @@ import {
 } from "@eric-schecter/graphics";
 import { query } from "bitecs";
 import { Renderer } from "./renderer";
-import { scene, invalid_id, getPrimaryCamera } from "../ecs";
+import { scene, invalid_id, getPrimaryCamera, EN_LIGHT_TYPE } from "../ecs";
+import { vec3 } from "gl-matrix";
 
 export class MeshRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
 
     private _instanceStorageBuffer: WGPUBuffer;
 
-    private _paramsBuffer: WGPUBuffer[] = [];
+    private _lightStorageBuffer: WGPUBuffer;
+
+    private _pushconstantBuffer: WGPUBuffer[] = [];
+
+    private _ambientLightBuffer: WGPUBuffer;
 
     private _renderBatch = new Map<number, number[]>(); // mesh entity -> object entities
 
     private _envTexture?: WGPUTexture;
+
+    private _maxLightCount = 64;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
 
         this._setupPipeline();
 
+        const floatSize = 4;
+
         const maxCount = 10000;
         this._instanceStorageBuffer = graphicsDevice.createBuffer({
-            size: maxCount * 64 * 4,
+            size: maxCount * 64 * floatSize,
             name: 'instance storage buffer',
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
@@ -36,11 +45,22 @@ export class MeshRenderer extends Renderer {
             count: maxCount,
         });
 
+        const maxLightCount = 64;
+        this._lightStorageBuffer = graphicsDevice.createBuffer({
+            size: maxLightCount * 4 * 4 * 4 * floatSize,
+            name: 'light storage buffer',
+            usage: EN_USAGE.DEFAULT,
+            bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            stride: 0,
+            count: maxLightCount,
+        });
+
         // todo: change to dynamic size
         for (let i = 0; i < maxCount; i++) {
-            this._paramsBuffer[i] = graphicsDevice.createBuffer({
+            this._pushconstantBuffer[i] = graphicsDevice.createBuffer({
                 size: 4,
-                name: 'params buffer',
+                name: 'pushconstant buffer',
                 usage: EN_USAGE.DEFAULT,
                 bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
                 miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
@@ -49,6 +69,15 @@ export class MeshRenderer extends Renderer {
             });
         }
 
+        this._ambientLightBuffer = graphicsDevice.createBuffer({
+            size: 4 * 4,
+            name: 'ambient light buffer',
+            usage: EN_USAGE.DEFAULT,
+            bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            stride: 0,
+            count: 1,
+        });
     }
 
     public set envTexture(value: WGPUTexture) {
@@ -57,7 +86,7 @@ export class MeshRenderer extends Renderer {
 
     public update() {
         // todo: add dirty mark
-        const { objects, transforms, materials, meshes } = scene.components;
+        const { objects, transforms, materials, meshes, lights } = scene.components;
 
         this._renderBatch.clear();
 
@@ -102,6 +131,52 @@ export class MeshRenderer extends Renderer {
         }
 
         this._instanceStorageBuffer.update(data);
+
+        for (const entity of query(scene, [lights])) {
+            const light = lights[entity];
+            if (light.type === EN_LIGHT_TYPE.AMBIENT && light.dirty) {
+                const color = vec3.scale(vec3.create(), light.color, light.intensity);
+                this._ambientLightBuffer.update(new Float32Array([color[0], color[1], color[2], 1]));
+                light.dirty = false;
+                // one ambient light for now
+                break
+            }
+        }
+
+        let lightIndex = 0;
+        stride = 4 * 4 * 4 * 4;
+
+        for (const entity of query(scene, [lights, transforms])) {
+            if (lightIndex > this._maxLightCount) {
+                console.warn('reach light count limit');
+                break;
+            }
+            const light = lights[entity];
+            const transform = transforms[entity];
+            if (light.type === EN_LIGHT_TYPE.DIRECTIONAL && light.dirty) {
+                const color = vec3.scale(vec3.create(), light.color, light.intensity);
+                const lightData = new Float32Array([
+                    ...Array.from(transform.translation), 0,
+                    ...Array.from(light.direction), 0,
+                    ...Array.from(color), 0,
+                    1, // enable
+                    0, // light type
+                ]);
+                this._lightStorageBuffer.update(lightData, lightIndex * stride)
+                light.dirty = false;
+                lightIndex++;
+            }
+            if (light.type === EN_LIGHT_TYPE.SPOT && light.dirty) {
+
+                light.dirty = false;
+                lightIndex++;
+            }
+            if (light.type === EN_LIGHT_TYPE.POINT && light.dirty) {
+
+                light.dirty = false;
+                lightIndex++;
+            }
+        }
     }
 
     public render(cmd: RenderCommandBuffer) {
@@ -136,13 +211,13 @@ export class MeshRenderer extends Renderer {
             const { diffuseTexture, normalTexture, metallicRoughnessTexture, emissiveTexture, occlusionTexture } = materialComponent;
             const { vertexBuffers, indexBuffer } = meshComponent;
 
-            this._paramsBuffer[drawcall].update(new Uint32Array([entityCount]));
+            this._pushconstantBuffer[drawcall].update(new Uint32Array([entityCount]));
 
             this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
             this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32, 0);
             this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
-            this._graphicsDevice.bindResource(cmd, this._paramsBuffer[drawcall], 2);
+            this._graphicsDevice.bindResource(cmd, this._pushconstantBuffer[drawcall], 2);
             this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
             this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._whiteTexture, 4);
             this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._blackTexture, 5);
@@ -152,6 +227,8 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, this._envTexture || this._whiteTextureCube, 9);
             this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 10);
             this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 11);
+            this._graphicsDevice.bindResource(cmd, this._ambientLightBuffer, 12);
+            this._graphicsDevice.bindResource(cmd, this._lightStorageBuffer, 13);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, objectEntities.length);
 
             drawcall++;

@@ -28,6 +28,25 @@ export function getPos(mat: mat4) {
     return vec3.fromValues(mat[12], mat[13], mat[14]);
 }
 
+function calculateFallbackTangent(faceNormal: vec3): vec3 {
+    const tangent = vec3.create();
+
+    if (Math.abs(faceNormal[0]) > 0.1 || Math.abs(faceNormal[2]) > 0.1) {
+        vec3.cross(tangent, [0, 1, 0], faceNormal);
+    } else {
+        vec3.cross(tangent, [1, 0, 0], faceNormal);
+    }
+
+    if (vec3.length(tangent) > 1e-8) {
+        vec3.normalize(tangent, tangent);
+    } else {
+        console.warn('generate tangent failed');
+        vec3.set(tangent, 1, 0, 0);
+    }
+
+    return tangent;
+}
+
 export function generateTangentData(
     positions: vec3[],
     normals: vec3[],
@@ -76,7 +95,13 @@ export function generateTangentData(
 
         const denom = s1 * t2 - s2 * t1;
         if (Math.abs(denom) < 1e-8) {
-            console.warn('Denom is zero when generating tangents');
+            // console.warn('Denom is zero when generating tangents');
+            const tangent = calculateFallbackTangent(facenormal);
+            const t = vec4.fromValues(tangent[0], tangent[1], tangent[2], 1.0);
+
+            for (const idx of [i0, i1, i2]) {
+                vec4.add(tangents[idx], tangents[idx], t);
+            }
             continue;
         }
 

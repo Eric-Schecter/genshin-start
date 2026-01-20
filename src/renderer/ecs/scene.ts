@@ -2,6 +2,7 @@ import { addComponent, addEntity, createWorld, hasComponent, query, } from "bite
 import {
     MaterialComponent, MeshComponent, ObjectComponent, TagComponent,
     TransformComponent, CameraComponent, HierarchyComponent,
+    LightComponent,
 } from "./components";
 import { invalid_id } from "./constant";
 import { mat4, quat, vec3 } from "gl-matrix";
@@ -15,11 +16,12 @@ export const scene = createWorld({
         cameras: [] as CameraComponent[],
         hierarchies: [] as HierarchyComponent[],
         tags: [] as TagComponent[],
+        lights: [] as LightComponent[],
     }
 });
 
 export function clone(entity: number) {
-    const { transforms, cameras, tags, hierarchies, objects, materials, meshes } = scene.components;
+    const { transforms, cameras, tags, hierarchies, objects, materials, meshes, lights } = scene.components;
     const clonedEntity = addEntity(scene);
     if (hasComponent(scene, entity, cameras)) {
         addComponent(scene, clonedEntity, cameras);
@@ -71,6 +73,14 @@ export function clone(entity: number) {
     if (hasComponent(scene, entity, meshes)) {
         addComponent(scene, clonedEntity, meshes);
         meshes[clonedEntity] = { ...meshes[entity], ...{ bbox: meshes[entity].bbox.clone() } };
+    }
+    if (hasComponent(scene, entity, lights)) {
+        addComponent(scene, clonedEntity, lights);
+        lights[clonedEntity] = {
+            ...lights[entity], ...{
+                color: vec3.clone(lights[entity].color),
+            }
+        };
     }
 
     // clone children

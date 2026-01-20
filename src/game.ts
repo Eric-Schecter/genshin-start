@@ -8,6 +8,7 @@ import { BackGround } from "./background";
 import { Cloud } from "./cloud";
 import { BigCloud } from "./big_cloud";
 import { Fog } from "./fog";
+import { Lights } from "./lights";
 
 export class Game extends SceneRenderer {
     private _road: Road;
@@ -21,6 +22,8 @@ export class Game extends SceneRenderer {
     private _bigCloud: BigCloud;
 
     private _fog: Fog;
+
+    private _lights: Lights;
 
     private _debug = true;
 
@@ -49,23 +52,26 @@ export class Game extends SceneRenderer {
         this._road = new Road();
         this._column = new Column();
         this._background = new BackGround(this._graphicsDevice);
-        this._cloud = new Cloud(graphicsDevice);
+        // this._cloud = new Cloud(graphicsDevice);
         this._bigCloud = new BigCloud(graphicsDevice);
-        this._fog = new Fog(graphicsDevice);
+        // // this._fog = new Fog(graphicsDevice);
+        this._lights = new Lights();
 
         this._renderers.push(
-            this._cloud,
+            // this._cloud,
             this._bigCloud,
-            this._fog,
+            // this._fog,
         );
 
-        this._skyRenderer.envTexture = this._background.create();
-        this._skyRenderer.isEquirectangular = false;
+        // this._skyRenderer.envTexture = this._background.create();
+        // this._skyRenderer.isEquirectangular = false;
+
+        // this._cloud.onload();
 
         Promise.all([
             // this._modelLoader.load('models/DOOR.glb'),
-            this._modelLoader.load('models/SM_BigCloud.glb'),
-            this._modelLoader.load('models/SM_Light.glb'),
+            // this._modelLoader.load('models/SM_BigCloud.glb'),
+            // this._modelLoader.load('models/SM_Light.glb'),
             this._modelLoader.load('models/SM_Qiao01.glb'),
             this._modelLoader.load('models/SM_Qiao02.glb'),
             this._modelLoader.load('models/SM_Qiao03.glb'),
@@ -79,7 +85,6 @@ export class Game extends SceneRenderer {
         ]).then(() => {
             this._road.onLoad();
             this._column.onload();
-            this._cloud.onload();
             this._bigCloud.onload();
         });
     }
@@ -88,6 +93,7 @@ export class Game extends SceneRenderer {
         this._controller.update(dt);
         this._road.update(dt);
         this._column.update(dt);
+        this._lights.update();
 
         super.update(dt);
     }
