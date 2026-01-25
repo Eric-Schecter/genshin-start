@@ -1,18 +1,24 @@
 import {
     GraphicsDevice, EN_FORMAT, EN_BIND_FLAG, EN_RESOURCE_MISC_FLAG, EN_USAGE, EN_RESOURCE_STATE,
-    WGPUTexture, EN_TEX_TYPE, RenderPassImage, EN_LOAD_OP, RenderCommandBuffer
+    WGPUTexture, EN_TEX_TYPE, RenderPassImage, EN_LOAD_OP, RenderCommandBuffer,
+    WGPUBuffer
 } from "@eric-schecter/graphics";
 import { vec4 } from 'gl-matrix';
 import { ArcBallController, Controller } from './controller';
-import { SkyRenderer, Renderer, MipmapGenerator, ImageRenderer, MeshRenderer } from './renderers';
+import {
+    SkyRenderer, Renderer, MipmapGenerator, ImageRenderer, MeshRenderer,
+    ShadowRenderer,
+} from './renderers';
 import { ModelLoader } from './model_loader';
 import { Tonemap } from './pass/tonemap';
 import {
     CameraSystem, creaetDefaultTransformComponent, scene, TransformSystem,
     MeshSystem, MaterialSystem,
-    createDefaultCameraComponent
+    createDefaultCameraComponent,
+    LightSystem
 } from "./ecs";
 import { addComponent, addEntity, query } from "bitecs";
+import { floatSize, maxInstanceCount } from "./constant";
 
 export class SceneRenderer extends Renderer {
     private _needUpdate = 1;
@@ -28,6 +34,7 @@ export class SceneRenderer extends Renderer {
     private _textures: WGPUTexture[] = [];
 
     protected _skyRenderer: SkyRenderer;
+    private _shadowRenderer: ShadowRenderer;
     private _imageRenderer: ImageRenderer;
     protected _meshRenderer: MeshRenderer;
     protected _renderers: Renderer[] = [];
@@ -37,6 +44,7 @@ export class SceneRenderer extends Renderer {
 
     private _transformSystem: TransformSystem;
     private _cameraSystem: CameraSystem;
+    private _lightSystem: LightSystem;
     private _meshSystem: MeshSystem;
     private _materialSystem: MaterialSystem;
 
@@ -45,6 +53,10 @@ export class SceneRenderer extends Renderer {
     protected _modelLoader: ModelLoader;
     protected _controller: Controller;
 
+    private _renderBatch = new Map<number, number[]>(); // mesh entity -> object entities
+
+    private _instanceStorageBuffer: WGPUBuffer;
+
     // private _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
@@ -52,6 +64,7 @@ export class SceneRenderer extends Renderer {
 
         this._transformSystem = new TransformSystem();
         this._cameraSystem = new CameraSystem();
+        this._lightSystem = new LightSystem();
         this._meshSystem = new MeshSystem();
         this._materialSystem = new MaterialSystem();
 
@@ -61,6 +74,7 @@ export class SceneRenderer extends Renderer {
         this._modelLoader = new ModelLoader();
 
         this._meshRenderer = new MeshRenderer(graphicsDevice);
+        this._shadowRenderer = new ShadowRenderer(graphicsDevice);
 
         this._createTextures();
 
@@ -70,7 +84,17 @@ export class SceneRenderer extends Renderer {
 
         this._time = performance.now();
 
-        this._renderers.push(this._meshRenderer, this._skyRenderer);
+        this._renderers.push(this._skyRenderer);
+
+        this._instanceStorageBuffer = graphicsDevice.createBuffer({
+            size: maxInstanceCount * 64 * floatSize,
+            name: 'instance storage buffer',
+            usage: EN_USAGE.DEFAULT,
+            bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            stride: 0,
+            count: maxInstanceCount,
+        });
 
         const observer = new ResizeObserver(entries => {
             const { limits: { maxTextureDimension2D } } = this._graphicsDevice;
@@ -108,11 +132,15 @@ export class SceneRenderer extends Renderer {
         this._needUpdate += this._meshSystem.update(this._graphicsDevice);
         this._needUpdate += this._materialSystem.update(this._graphicsDevice);
         this._needUpdate += this._cameraSystem.update(this._graphicsDevice, this._controller, dt);
+        this._needUpdate += this._lightSystem.update(this._graphicsDevice, this._shadowRenderer.shadowAtlas);
         this._needUpdate += this._transformSystem.update();
 
-        this._renderers.forEach(renderer=>renderer.update(dt));
+        this._renderers.forEach(renderer => renderer.update(dt));
+        this._meshRenderer.update();
+        this._shadowRenderer.update();
 
         this._meshRenderer.envTexture = this._skyRenderer.envrenderingColorTextureFiltered;
+        this._meshRenderer.shadowAtlas = this._shadowRenderer.shadowAtlas;
     }
 
     public render(): void {
@@ -146,8 +174,58 @@ export class SceneRenderer extends Renderer {
         this._controller.destroy();
     }
 
+    private _buildRenderBatch() {
+        const { objects, transforms, materials, meshes } = scene.components;
+
+        this._renderBatch.clear();
+
+        for (const entity of query(scene, [objects, transforms])) {
+            const objectComponent = objects[entity];
+            const meshEntities = objectComponent?.meshEntities;
+
+            for (const meshEntity of meshEntities) {
+                // todo
+                const materialEntities = meshes[meshEntity].materialEntity;
+                if (materialEntities.length === 0) {
+                    continue;
+                }
+                if (materials[materialEntities[0]].type !== 'default') {
+                    continue;
+                }
+                if (!this._renderBatch.has(meshEntity)) {
+                    this._renderBatch.set(meshEntity, [entity]);
+                } else {
+                    this._renderBatch.get(meshEntity)?.push(entity);
+                }
+            }
+        }
+
+        let count = 0;
+        let stride = 64;
+        for (const [_, objectEntities] of this._renderBatch) {
+            count += objectEntities.length;
+        }
+        const data = new Float32Array(count * stride);
+
+        let offset = 0;
+        stride = 16;
+        for (const [_, objectEntities] of this._renderBatch) {
+            for (const entity of objectEntities) {
+                const { worldMatrix, normalMatrix } = transforms[entity];
+                data.set(worldMatrix, offset * stride);
+                offset++;
+                data.set(normalMatrix, offset * stride);
+                offset++;
+            }
+        }
+
+        this._instanceStorageBuffer.update(data);
+    }
+
     private _preprocess(cmd: RenderCommandBuffer) {
+        this._buildRenderBatch();
         this._skyRenderer.renderEnvMap(cmd, this._mipmapGenerator);
+        this._shadowRenderer.render(cmd, this._renderBatch, this._instanceStorageBuffer);
     }
 
     private _renderScene(cmd: RenderCommandBuffer) {
@@ -158,6 +236,7 @@ export class SceneRenderer extends Renderer {
         );
 
         this._renderers.forEach(renderer => renderer.render(cmd));
+        this._meshRenderer.render(cmd, this._renderBatch, this._instanceStorageBuffer);
 
         this._graphicsDevice.endRenderPass(cmd);
         this._graphicsDevice.endEvent(cmd);

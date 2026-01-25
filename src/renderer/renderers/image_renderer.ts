@@ -1,7 +1,9 @@
-import { BlendState, DepthStencilState, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE,
+import {
+    BlendState, DepthStencilState, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE,
     EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_PRIMITIVE_TOPOLOGY, EN_STENCIL_OP, GraphicsDevice, GraphicsPipeline,
-    RasterizerState, RenderCommandBuffer, WGPUTexture } from "@eric-schecter/graphics";
-import { Renderer } from "./renderer";
+    RasterizerState, RenderCommandBuffer, WGPUTexture
+} from "@eric-schecter/graphics";
+import { EN_SAMPLER_TYPE, Renderer } from "./renderer";
 
 export class ImageRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
@@ -12,6 +14,8 @@ export class ImageRenderer extends Renderer {
         this._setupPipeline();
     }
 
+    public update(dt: number) { }
+
     // todo: add render area
     public render(cmd: RenderCommandBuffer, texture: WGPUTexture) {
         if (!this._pipeline || !texture) {
@@ -19,7 +23,7 @@ export class ImageRenderer extends Renderer {
         }
         this._graphicsDevice.bindPipeline(cmd, this._pipeline);
         this._graphicsDevice.bindResource(cmd, texture, 0);
-        this._graphicsDevice.bindSampler(cmd, this._sampler, 1);
+        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 1);
         this._graphicsDevice.draw(cmd, 3);
     }
 

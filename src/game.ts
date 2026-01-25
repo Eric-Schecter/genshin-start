@@ -25,7 +25,7 @@ export class Game extends SceneRenderer {
 
     private _lights: Lights;
 
-    private _debug = true;
+    private _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -52,25 +52,25 @@ export class Game extends SceneRenderer {
         this._road = new Road();
         this._column = new Column();
         this._background = new BackGround(this._graphicsDevice);
-        // this._cloud = new Cloud(graphicsDevice);
+        this._cloud = new Cloud(graphicsDevice);
         this._bigCloud = new BigCloud(graphicsDevice);
-        // // this._fog = new Fog(graphicsDevice);
+        this._fog = new Fog(graphicsDevice);
         this._lights = new Lights();
 
         this._renderers.push(
-            // this._cloud,
+            this._cloud,
             this._bigCloud,
-            // this._fog,
+            this._fog,
         );
 
-        // this._skyRenderer.envTexture = this._background.create();
-        // this._skyRenderer.isEquirectangular = false;
+        this._skyRenderer.envTexture = this._background.create();
+        this._skyRenderer.isEquirectangular = false;
 
-        // this._cloud.onload();
+        this._cloud.onload();
 
         Promise.all([
             // this._modelLoader.load('models/DOOR.glb'),
-            // this._modelLoader.load('models/SM_BigCloud.glb'),
+            this._modelLoader.load('models/SM_BigCloud.glb'),
             // this._modelLoader.load('models/SM_Light.glb'),
             this._modelLoader.load('models/SM_Qiao01.glb'),
             this._modelLoader.load('models/SM_Qiao02.glb'),

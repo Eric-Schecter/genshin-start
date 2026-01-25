@@ -1,5 +1,5 @@
 import { EN_BIND_FLAG, EN_RESOURCE_MISC_FLAG, EN_USAGE, GPUBufferDesc, GraphicsDevice } from "@eric-schecter/graphics";
-import { vec3, mat4, vec4, vec2 } from "gl-matrix";
+import { vec3, mat4, vec4, vec2, quat } from "gl-matrix";
 import { createDefaultTextureData } from "./ecs";
 
 export function setupUniformBuffer(graphicsDevice: GraphicsDevice, data: number[], name = '') {
@@ -16,12 +16,18 @@ export function setupUniformBuffer(graphicsDevice: GraphicsDevice, data: number[
     return graphicsDevice.createBuffer(desc, color);
 }
 
+export function quatToMat4(quat: quat){
+    const mat = mat4.create();
+    mat4.fromQuat(mat, quat);
+    return mat;
+}
+
 export function getUp(mat: mat4) {
     return vec3.fromValues(mat[4], mat[5], mat[6]);
 }
 
-export function getFocus(mat: mat4) {
-    return vec3.fromValues(mat[8], mat[9], mat[10]);
+export function getForward(mat: mat4) {
+    return vec3.fromValues(-mat[8], -mat[9], -mat[10]);
 }
 
 export function getPos(mat: mat4) {

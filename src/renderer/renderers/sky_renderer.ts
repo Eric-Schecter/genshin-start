@@ -7,7 +7,7 @@ import {
     SubresourceData, TextureDesc, WGPUBuffer, WGPUTexture,
     ComputePipeline, RenderCommandBuffer
 } from "@eric-schecter/graphics";
-import { Renderer } from "./renderer";
+import { EN_SAMPLER_TYPE, Renderer } from "./renderer";
 import { mat4, vec3, vec4, glMatrix } from "gl-matrix";
 import { MipmapGenerator } from "./mipmap_generator";
 import { GENERATEMIPCHAIN_2D_BLOCK_SIZE } from "./constant";
@@ -141,7 +141,7 @@ export class SkyRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, this._camerasUniformBuffer, 0);
             this._graphicsDevice.bindResource(cmd, this._paramsUniforms[i], 1);
             this._graphicsDevice.bindResource(cmd, this._envTexture, 2);
-            this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
+            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
             this._graphicsDevice.drawInstanced(cmd, 240, 1, 0, 0);
             this._graphicsDevice.endRenderPass(cmd);
         }
@@ -157,7 +157,7 @@ export class SkyRenderer extends Renderer {
             return;
         }
         this._graphicsDevice.bindPipeline(cmd, this._isEquirectangular ? this._skyCubemapPipeline : this._skyPipeline);
-        this._graphicsDevice.bindSampler(cmd, this._sampler, 0);
+        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 0);
         this._graphicsDevice.bindResource(cmd, this._envTexture, 1);
         if (this._isEquirectangular) {
             this._graphicsDevice.bindResource(cmd, this._cameraUniformBuffer, 2);
@@ -198,7 +198,7 @@ export class SkyRenderer extends Renderer {
 
             this._graphicsDevice.bindResource(cmd, filteredEnvmapBuffers[i], 0);
             this._graphicsDevice.bindResource(cmd, this._envrenderingColorTexture, 1);
-            this._graphicsDevice.bindSampler(cmd, this._sampler, 2);
+            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 2);
             this._graphicsDevice.bindUAV(cmd, this._envrenderingColorTextureFiltered, 3, i);
             this._graphicsDevice.dispatch(
                 cmd,

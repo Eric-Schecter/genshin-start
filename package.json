@@ -19,6 +19,7 @@
         "draco3dgltf": "^1.5.7",
         "gl-matrix": "^3.4.4",
         "hdr.js": "^0.2.0",
+        "maxrects-packer": "^2.7.3",
         "mikktspace": "^1.1.1"
     },
     "devDependencies": {

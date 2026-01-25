@@ -5,7 +5,7 @@ import {
     LightComponent,
 } from "./components";
 import { invalid_id } from "./constant";
-import { mat4, quat, vec3 } from "gl-matrix";
+import { mat4, quat, vec3, vec4 } from "gl-matrix";
 
 export const scene = createWorld({
     components: {
@@ -79,6 +79,10 @@ export function clone(entity: number) {
         lights[clonedEntity] = {
             ...lights[entity], ...{
                 color: vec3.clone(lights[entity].color),
+                cameras: [...lights[entity].cameras],
+                matrix: mat4.clone(lights[entity].matrix),
+                shadowAtlasMulAdd: vec4.clone(lights[entity].shadowAtlasMulAdd),
+                shadowRect: { ...lights[entity].shadowRect },
             }
         };
     }

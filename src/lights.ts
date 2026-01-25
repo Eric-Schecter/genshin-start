@@ -1,12 +1,17 @@
 import { addComponent, addEntity } from "bitecs";
-import { creaetDefaultLightComponent, creaetDefaultTransformComponent, EN_LIGHT_TYPE, getPrimaryCamera, invalid_id, scene } from "./renderer";
-import { vec3 } from "gl-matrix";
+import {
+    creaetDefaultLightComponent, creaetDefaultTransformComponent, createDefaultCameraComponent,
+    EN_CAMERA_TYPE, EN_LIGHT_TYPE, getPrimaryCamera, invalid_id, scene
+} from "./renderer";
+import { mat3, mat4, quat, vec3 } from "gl-matrix";
 
 export class Lights {
     private _directionalLightEntity = invalid_id;
 
+    private _offset = vec3.create();
+
     public constructor() {
-        const { lights, transforms } = scene.components;
+        const { lights, transforms, cameras } = scene.components;
         const ambientLightEntity = addEntity(scene);
         addComponent(scene, ambientLightEntity, lights);
         lights[ambientLightEntity] = creaetDefaultLightComponent();
@@ -18,12 +23,29 @@ export class Lights {
         addComponent(scene, directionalLightEntity, lights);
         lights[directionalLightEntity] = creaetDefaultLightComponent();
         lights[directionalLightEntity].type = EN_LIGHT_TYPE.DIRECTIONAL;
-        lights[directionalLightEntity].color = vec3.fromValues(255 / 255, 98 / 255, 34/255);
+        lights[directionalLightEntity].color = vec3.fromValues(255 / 255, 98 / 255, 34 / 255);
         lights[directionalLightEntity].intensity = 35;
 
+        const shadowCameraEntity = addEntity(scene);
+        addComponent(scene, shadowCameraEntity, cameras);
+        cameras[shadowCameraEntity] = createDefaultCameraComponent();
+        cameras[shadowCameraEntity].near = 1;
+        cameras[shadowCameraEntity].far = 50000;
+        cameras[shadowCameraEntity].type = EN_CAMERA_TYPE.ORTHOGRAPHICS;
+
+        lights[directionalLightEntity].cameras.push(shadowCameraEntity);
+
         addComponent(scene, directionalLightEntity, transforms);
+        this._offset = vec3.fromValues(10000, 0, 6000);
+        this._offset[1] = Math.sqrt(
+            Math.pow(this._offset[0], 2) +
+            Math.pow(this._offset[2], 2)) / 1.35;
         transforms[directionalLightEntity] = creaetDefaultTransformComponent();
-        transforms[directionalLightEntity].translation = vec3.fromValues(10000, 0, 6000);
+        vec3.copy(transforms[directionalLightEntity].translation, this._offset);
+        const m4 = mat4.lookAt(mat4.create(), transforms[directionalLightEntity].translation, vec3.create(), vec3.fromValues(0, 1, 0));
+        mat4.transpose(m4, m4);
+        const m3 = mat3.fromMat4(mat3.create(), m4);
+        quat.fromMat3(transforms[directionalLightEntity].rotation, m3);
 
         this._directionalLightEntity = directionalLightEntity;
     }
@@ -32,11 +54,12 @@ export class Lights {
         if (this._directionalLightEntity === invalid_id) {
             return;
         }
-        const { transforms } = scene.components;
+        const { transforms, lights} = scene.components;
         const primaryCameraEntity = getPrimaryCamera();
         const cameraCenter = transforms[primaryCameraEntity].translation;
 
-        vec3.copy(transforms[this._directionalLightEntity].translation, cameraCenter);
+        vec3.copy(transforms[this._directionalLightEntity].translation, vec3.add(vec3.create(), cameraCenter, this._offset));
         transforms[primaryCameraEntity].dirty = true;
+        lights[this._directionalLightEntity].dirty = true;
     }
 }

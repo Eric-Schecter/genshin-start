@@ -7,7 +7,7 @@ struct InstanceData {
     normalMatrix: mat4x4<f32>,
 };
 
-@group(0) @binding(11) var<storage, read> instances: array<InstanceData>;
+@group(0) @binding(3) var<storage, read> instances: array<InstanceData>;
 
 struct VertexInput {
     @builtin(instance_index) instance_idx: u32,

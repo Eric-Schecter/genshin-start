@@ -1,6 +1,6 @@
 import { vec4, quat, vec2, vec3, mat4, mat3 } from "gl-matrix";
 import { Controller } from "./controller";
-import { getFocus, getPos } from "../utils";
+import { getForward, getPos } from "../utils";
 
 export class FirstPersonController extends Controller {
     private _keysPressed = new Set<string>();
@@ -76,7 +76,7 @@ export class FirstPersonController extends Controller {
         mat4.invert(this._viewMatrixInv, viewMatrix);
 
         this.pos = getPos(this._viewMatrixInv);
-        const focus = getFocus(this._viewMatrixInv);
+        const focus = vec3.scale(vec3.create(), getForward(this._viewMatrixInv), -1);
 
         const dis = vec3.len(vec3.sub(vec3.create(), this.focus, this.pos));
         vec3.sub(this.focus, this.pos, vec3.scale(vec3.create(), focus, dis));

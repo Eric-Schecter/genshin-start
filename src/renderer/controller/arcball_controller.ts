@@ -1,6 +1,6 @@
 import { vec4, quat, vec2, vec3, mat4, mat3 } from "gl-matrix";
 import { Controller } from "./controller";
-import { getFocus, getPos, getUp } from "../utils";
+import { getForward, getPos, getUp } from "../utils";
 
 export class ArcBallController extends Controller {
     private _preMousePos = vec2.create();
@@ -63,7 +63,7 @@ export class ArcBallController extends Controller {
             this.up = getUp(this._viewMatrixInv);
         }
         this.pos = getPos(this._viewMatrixInv);
-        const focus = getFocus(this._viewMatrixInv);
+        const focus = vec3.scale(vec3.create(), getForward(this._viewMatrixInv), -1);
 
         const dis = vec3.len(vec3.sub(vec3.create(), this.focus, this.pos));
         vec3.sub(this.focus, this.pos, vec3.scale(vec3.create(), focus, dis));

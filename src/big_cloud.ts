@@ -1,7 +1,8 @@
 import { vec3 } from "gl-matrix";
-import { BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer } from "@eric-schecter/graphics";
+import { BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_TEX_TYPE, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer } from "@eric-schecter/graphics";
 import { scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, getEntityByTag, createDefaultMaterialComponent } from "./renderer";
 import { addComponent, addEntity, query } from "bitecs";
+import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE } from "./renderer/renderers";
 
 export class BigCloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
@@ -135,8 +136,8 @@ export class BigCloud extends Renderer {
             this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._modelBuffers[0], 2);
-            this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
-            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._whiteTexture, 4);
+            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, 1);
         }
 
@@ -163,8 +164,8 @@ export class BigCloud extends Renderer {
             this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._modelBuffers[1], 2);
-            this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
-            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._whiteTexture, 4);
+            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, 1);
         }
     }

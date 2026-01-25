@@ -1,5 +1,5 @@
 import { EN_RESOURCE_MISC_FLAG, EN_TEX_TYPE, GraphicsDevice, WGPUBuffer, WGPUTexture, ComputePipeline, RenderCommandBuffer } from "@eric-schecter/graphics";
-import { Renderer } from "./renderer";
+import { EN_SAMPLER_TYPE, Renderer } from "./renderer";
 import { GENERATEMIPCHAIN_2D_BLOCK_SIZE } from "./constant";
 
 export class MipmapGenerator extends Renderer {
@@ -9,6 +9,9 @@ export class MipmapGenerator extends Renderer {
         super(graphicsDevice);
         this._createPipelines();
     }
+
+    public update(dt: number) { }
+    public render(cmd: RenderCommandBuffer) { };
 
     public run(cmd: RenderCommandBuffer, texture: WGPUTexture) {
         const { desc: { type, arraySize, width, height, mipLevels, miscFlags } } = texture;
@@ -40,7 +43,7 @@ export class MipmapGenerator extends Renderer {
 
                         this._graphicsDevice.bindResource(cmd, mipmapBuffers[i], 0);
                         this._graphicsDevice.bindResource(cmd, texture, 1, i);
-                        this._graphicsDevice.bindSampler(cmd, this._sampler, 2);
+                        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 2);
                         this._graphicsDevice.bindUAV(cmd, texture, 3, i + 1);
                         this._graphicsDevice.dispatch(cmd,
                             Math.max(1, Math.floor((w + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE)),

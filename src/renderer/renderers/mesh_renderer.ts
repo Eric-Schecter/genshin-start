@@ -6,14 +6,14 @@ import {
     RasterizerState, RenderCommandBuffer, WGPUBuffer, WGPUTexture
 } from "@eric-schecter/graphics";
 import { query } from "bitecs";
-import { Renderer } from "./renderer";
+import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, Renderer } from "./renderer";
 import { scene, invalid_id, getPrimaryCamera, EN_LIGHT_TYPE } from "../ecs";
 import { vec3 } from "gl-matrix";
+import { getForward, quatToMat4 } from "../utils";
+import { floatSize, maxInstanceCount } from "../constant";
 
 export class MeshRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
-
-    private _instanceStorageBuffer: WGPUBuffer;
 
     private _lightStorageBuffer: WGPUBuffer;
 
@@ -21,9 +21,11 @@ export class MeshRenderer extends Renderer {
 
     private _ambientLightBuffer: WGPUBuffer;
 
-    private _renderBatch = new Map<number, number[]>(); // mesh entity -> object entities
+    private _shadowAtlasResolution: WGPUBuffer;
 
     private _envTexture?: WGPUTexture;
+
+    private _shadowAtlas?: WGPUTexture;
 
     private _maxLightCount = 64;
 
@@ -32,32 +34,8 @@ export class MeshRenderer extends Renderer {
 
         this._setupPipeline();
 
-        const floatSize = 4;
-
-        const maxCount = 10000;
-        this._instanceStorageBuffer = graphicsDevice.createBuffer({
-            size: maxCount * 64 * floatSize,
-            name: 'instance storage buffer',
-            usage: EN_USAGE.DEFAULT,
-            bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
-            count: maxCount,
-        });
-
-        const maxLightCount = 64;
-        this._lightStorageBuffer = graphicsDevice.createBuffer({
-            size: maxLightCount * 4 * 4 * 4 * floatSize,
-            name: 'light storage buffer',
-            usage: EN_USAGE.DEFAULT,
-            bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
-            count: maxLightCount,
-        });
-
         // todo: change to dynamic size
-        for (let i = 0; i < maxCount; i++) {
+        for (let i = 0; i < maxInstanceCount; i++) {
             this._pushconstantBuffer[i] = graphicsDevice.createBuffer({
                 size: 4,
                 name: 'pushconstant buffer',
@@ -69,9 +47,30 @@ export class MeshRenderer extends Renderer {
             });
         }
 
+        const maxLightCount = 64;
+        this._lightStorageBuffer = graphicsDevice.createBuffer({
+            size: maxLightCount * 4 * 9 * 4 * floatSize,
+            name: 'light storage buffer',
+            usage: EN_USAGE.DEFAULT,
+            bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            stride: 0,
+            count: maxLightCount,
+        });
+
         this._ambientLightBuffer = graphicsDevice.createBuffer({
-            size: 4 * 4,
+            size: 4 * floatSize,
             name: 'ambient light buffer',
+            usage: EN_USAGE.DEFAULT,
+            bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            stride: 0,
+            count: 1,
+        });
+
+        this._shadowAtlasResolution = graphicsDevice.createBuffer({
+            size: 2 * floatSize,
+            name: 'shadow atlas resolution',
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
             miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
@@ -84,53 +83,18 @@ export class MeshRenderer extends Renderer {
         this._envTexture = value;
     }
 
+    public set shadowAtlas(value: WGPUTexture) {
+        this._shadowAtlas = value;
+        if (!value) {
+            return;
+        }
+        const { desc } = this._shadowAtlas;
+        this._shadowAtlasResolution.update(new Float32Array([desc.width, desc.height]));
+    }
+
     public update() {
         // todo: add dirty mark
-        const { objects, transforms, materials, meshes, lights } = scene.components;
-
-        this._renderBatch.clear();
-
-        for (const entity of query(scene, [objects, transforms])) {
-            const objectComponent = objects[entity];
-            const meshEntities = objectComponent?.meshEntities;
-
-            for (const meshEntity of meshEntities) {
-                // todo
-                const materialEntities = meshes[meshEntity].materialEntity;
-                if (materialEntities.length === 0) {
-                    continue;
-                }
-                if (materials[materialEntities[0]].type !== 'default') {
-                    continue;
-                }
-                if (!this._renderBatch.has(meshEntity)) {
-                    this._renderBatch.set(meshEntity, [entity]);
-                } else {
-                    this._renderBatch.get(meshEntity)?.push(entity);
-                }
-            }
-        }
-
-        let count = 0;
-        let stride = 64;
-        for (const [_, objectEntities] of this._renderBatch) {
-            count += objectEntities.length;
-        }
-        const data = new Float32Array(count * stride);
-
-        let offset = 0;
-        stride = 16;
-        for (const [_, objectEntities] of this._renderBatch) {
-            for (const entity of objectEntities) {
-                const { worldMatrix, normalMatrix } = transforms[entity];
-                data.set(worldMatrix, offset * stride);
-                offset++;
-                data.set(normalMatrix, offset * stride);
-                offset++;
-            }
-        }
-
-        this._instanceStorageBuffer.update(data);
+        const { transforms, lights } = scene.components;
 
         for (const entity of query(scene, [lights])) {
             const light = lights[entity];
@@ -144,7 +108,7 @@ export class MeshRenderer extends Renderer {
         }
 
         let lightIndex = 0;
-        stride = 4 * 4 * 4 * 4;
+        const stride = 4 * 4 * 4 * 4;
 
         for (const entity of query(scene, [lights, transforms])) {
             if (lightIndex > this._maxLightCount) {
@@ -154,14 +118,19 @@ export class MeshRenderer extends Renderer {
             const light = lights[entity];
             const transform = transforms[entity];
             if (light.type === EN_LIGHT_TYPE.DIRECTIONAL && light.dirty) {
+            // if (light.type === EN_LIGHT_TYPE.DIRECTIONAL) {
                 const color = vec3.scale(vec3.create(), light.color, light.intensity);
                 const lightData = new Float32Array([
                     ...Array.from(transform.translation), 0,
-                    ...Array.from(light.direction), 0,
+                    ...Array.from(getForward(quatToMat4(transform.rotation))), 0,
                     ...Array.from(color), 0,
+                    ...Array.from(light.matrix),
+                    ...Array.from(light.shadowAtlasMulAdd),
                     1, // enable
                     0, // light type
+                    light.cascadeCount // todo
                 ]);
+
                 this._lightStorageBuffer.update(lightData, lightIndex * stride)
                 light.dirty = false;
                 lightIndex++;
@@ -179,7 +148,7 @@ export class MeshRenderer extends Renderer {
         }
     }
 
-    public render(cmd: RenderCommandBuffer) {
+    public render(cmd: RenderCommandBuffer, renderBatch: Map<number, number[]>, instanceStorageBuffer: WGPUBuffer) {
         if (!this._pipeline) {
             return;
         }
@@ -200,7 +169,7 @@ export class MeshRenderer extends Renderer {
 
         let drawcall = 0;
         let entityCount = 0;
-        for (const [meshEntity, objectEntities] of this._renderBatch) {
+        for (const [meshEntity, objectEntities] of renderBatch) {
             const meshComponent = meshes[meshEntity];
             const materialEntity = meshComponent?.materialEntity;
             if (materialEntity.length > 1) {
@@ -218,17 +187,20 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._pushconstantBuffer[drawcall], 2);
-            this._graphicsDevice.bindSampler(cmd, this._sampler, 3);
-            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._whiteTexture, 4);
-            this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._blackTexture, 5);
-            this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._blackTexture, 6);
-            this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._defaultMetalRoughnessTexture, 7);
-            this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._whiteTexture, 8);
-            this._graphicsDevice.bindResource(cmd, this._envTexture || this._whiteTextureCube, 9);
+            this._graphicsDevice.bindResource(cmd, instanceStorageBuffer, 3);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
+            this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.BLACK)!, 5);
+            this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.BLACK)!, 6);
+            this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.METAL_ROUGHNESS)!, 7);
+            this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 8);
+            this._graphicsDevice.bindResource(cmd, this._envTexture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE_CUBE)!, 9);
             this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 10);
-            this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 11);
+            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 11);
             this._graphicsDevice.bindResource(cmd, this._ambientLightBuffer, 12);
             this._graphicsDevice.bindResource(cmd, this._lightStorageBuffer, 13);
+            this._graphicsDevice.bindResource(cmd, this._shadowAtlasResolution, 14);
+            this._graphicsDevice.bindResource(cmd, this._shadowAtlas || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 15);
+            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.DEPTH_COMPARE)!, 16);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, objectEntities.length);
 
             drawcall++;
