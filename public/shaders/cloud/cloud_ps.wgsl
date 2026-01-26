@@ -10,7 +10,6 @@ struct VertexOutput {
     @location(3) tangent: vec4<f32>,
 };
 
-
 @fragment
 fn main(input: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(diffuseTexture, linearSampler, input.uv);

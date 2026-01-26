@@ -45,12 +45,12 @@ export class BackGround {
                     Math.min(t * colorT.green() + tb * colorTB.green() + b * colorB.green(), 100000),
                     Math.min(t * colorT.blue() + tb * colorTB.blue() + b * colorB.blue(), 100000)
                 );
-                // color = this.Color_ACES_Inv(color) // has nan value
+                const colorAcesInv = this.Color_ACES_Inv(color);
 
-                rgba[index] = color.red() / 255 //* 255;
-                rgba[index + 1] = color.green() / 255 //* 255;
-                rgba[index + 2] = color.blue() / 255 //* 255;
-                rgba[index + 3] = 1//255;
+                rgba[index] = colorAcesInv[0];
+                rgba[index + 1] = colorAcesInv[1];
+                rgba[index + 2] = colorAcesInv[2];
+                rgba[index + 3] = 1;
             }
         }
 
@@ -75,16 +75,16 @@ export class BackGround {
     }
 
     private ACES_Inv(color: vec3): vec3 {
-        const ACES_OUTPUT_MAT = mat3.fromValues(
-            0.64304, 0.05926, 0.00596,
-            0.31119, 0.93144, 0.06393,
-            0.04578, 0.00929, 0.93012
-        );
-
         const ACES_INPUT_MAT = mat3.fromValues(
             1.76474, -0.14702, -0.03633,
             -0.67577, 1.16025, -0.16243,
             -0.08896, -0.01322, 1.19877
+        );
+
+        const ACES_OUTPUT_MAT = mat3.fromValues(
+            0.64304, 0.05926, 0.00596,
+            0.31119, 0.93144, 0.06393,
+            0.04578, 0.00929, 0.93012
         );
 
         const result = vec3.clone(color);
@@ -101,9 +101,8 @@ export class BackGround {
     }
 
     private Color_ACES_Inv(color: ColorInstance) {
-        let p = vec3.fromValues(color.red(), color.green(), color.blue());
-        p = this.ACES_Inv(p);
-        return Color.rgb(p[0], p[1], p[2]);
+        let p = vec3.fromValues(color.red() / 255, color.green() / 255, color.blue() / 255);
+        return this.ACES_Inv(p);
     }
 
 }

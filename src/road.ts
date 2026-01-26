@@ -1,7 +1,8 @@
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec3, vec4 } from "gl-matrix";
 import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer/ecs";
 import { query } from "bitecs";
 import { Tween, Easing } from '@tweenjs/tween.js';
+import Color from "color";
 
 export class Road {
     private _zLength = 212.4027;
@@ -27,7 +28,9 @@ export class Road {
             return;
         }
 
-        const { hierarchies, transforms } = scene.components;
+        const { hierarchies, transforms, objects, meshes, materials } = scene.components;
+        const baseColor = vec4.fromValues(1, 252/255, 254/255, 1);
+
         for (const entity of query(scene, [hierarchies, transforms])) {
             const hierarchy = hierarchies[entity];
             if (hierarchy.parent === smRoadEntity) {
@@ -39,6 +42,14 @@ export class Road {
                 transform.dirty = true;
 
                 this._children.push(entity);
+
+                const [meshEntity] = objects[entity].meshEntities;
+                const [materialEntity] = meshes[meshEntity].materialEntity;
+                const material = materials[materialEntity];
+                material.baseColorFactor = baseColor;
+                material.roughnessFactor = 5;
+                material.metallicFactor = 0;
+                material.dirty = true;
             }
         }
 
@@ -58,16 +69,6 @@ export class Road {
             const transform = transforms[this._children[i]];
             this._originPosList.push(vec3.clone(transform.translation));
         }
-
-        // const v = this.viewer.user.resources.SM_Road
-        // this.viewer.scene.add(v)
-        // v.traverse((mesh: any) => {
-        //     mesh.receiveShadow = true
-        //     if (mesh instanceof Mesh) {
-        //         mesh.material = toonMaterials.getToonMaterial_Road(mesh.material, this.viewer.renderer)
-        //         mesh.receiveShadow = true
-        //     }
-        // })
 
         // this.on("start", this._startGame, this, true)
     }

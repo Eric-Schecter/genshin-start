@@ -1,6 +1,6 @@
 import {
     EN_BIND_FLAG, EN_COMPARISION_FUNC, EN_FILTER, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_SAMPLER_BORDER_COLOR, EN_TEX_TYPE, EN_TEXTURE_ADDRESS_MODE,
-    EN_USAGE, getFormatStride, GPUBufferDesc, GraphicsDevice, RenderCommandBuffer, Sampler, SamplerDesc, TextureDesc, WGPUTexture
+    EN_USAGE, getFormatStride, GPUBufferDesc, GraphicsDevice, RenderCommandBuffer, Sampler, TextureDesc, WGPUTexture
 } from "@eric-schecter/graphics";
 
 export enum EN_SAMPLER_TYPE {
@@ -168,7 +168,7 @@ export abstract class Renderer {
         }));
 
         this._samplers.set(EN_SAMPLER_TYPE.DEPTH_COMPARE, this._graphicsDevice.createSampler({
-            filter: EN_FILTER.COMPARISON_MIN_MAG_MIP_POINT,
+            filter: EN_FILTER.COMPARISON_MIN_MAG_MIP_LINEAR,
             addressU: EN_TEXTURE_ADDRESS_MODE.CLAMP,
             addressV: EN_TEXTURE_ADDRESS_MODE.CLAMP,
             addressW: EN_TEXTURE_ADDRESS_MODE.CLAMP,

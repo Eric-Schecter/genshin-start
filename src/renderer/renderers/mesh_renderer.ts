@@ -27,6 +27,8 @@ export class MeshRenderer extends Renderer {
 
     private _shadowAtlas?: WGPUTexture;
 
+    private _screenSize: WGPUBuffer;
+
     private _maxLightCount = 64;
 
     public constructor(graphicsDevice: GraphicsDevice) {
@@ -37,7 +39,7 @@ export class MeshRenderer extends Renderer {
         // todo: change to dynamic size
         for (let i = 0; i < maxInstanceCount; i++) {
             this._pushconstantBuffer[i] = graphicsDevice.createBuffer({
-                size: 4,
+                size: floatSize,
                 name: 'pushconstant buffer',
                 usage: EN_USAGE.DEFAULT,
                 bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
@@ -77,6 +79,16 @@ export class MeshRenderer extends Renderer {
             stride: 0,
             count: 1,
         });
+
+        this._screenSize = graphicsDevice.createBuffer({
+            size: 2 * floatSize,
+            name: 'screen size',
+            usage: EN_USAGE.DEFAULT,
+            bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            stride: 0,
+            count: 1,
+        });
     }
 
     public set envTexture(value: WGPUTexture) {
@@ -90,6 +102,10 @@ export class MeshRenderer extends Renderer {
         }
         const { desc } = this._shadowAtlas;
         this._shadowAtlasResolution.update(new Float32Array([desc.width, desc.height]));
+    }
+
+    public resize(width: number, height: number) {
+        this._screenSize.update(new Float32Array([width, height]));
     }
 
     public update() {
@@ -118,7 +134,7 @@ export class MeshRenderer extends Renderer {
             const light = lights[entity];
             const transform = transforms[entity];
             if (light.type === EN_LIGHT_TYPE.DIRECTIONAL && light.dirty) {
-            // if (light.type === EN_LIGHT_TYPE.DIRECTIONAL) {
+                // if (light.type === EN_LIGHT_TYPE.DIRECTIONAL) {
                 const color = vec3.scale(vec3.create(), light.color, light.intensity);
                 const lightData = new Float32Array([
                     ...Array.from(transform.translation), 0,
@@ -177,7 +193,8 @@ export class MeshRenderer extends Renderer {
             }
             const materialComponent = materials[materialEntity[0]]; // todo
 
-            const { diffuseTexture, normalTexture, metallicRoughnessTexture, emissiveTexture, occlusionTexture } = materialComponent;
+            const { diffuseTexture, normalTexture, metallicRoughnessTexture, emissiveTexture,
+                occlusionTexture, shaderMaterialBuffer } = materialComponent;
             const { vertexBuffers, indexBuffer } = meshComponent;
 
             this._pushconstantBuffer[drawcall].update(new Uint32Array([entityCount]));
@@ -201,6 +218,9 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, this._shadowAtlasResolution, 14);
             this._graphicsDevice.bindResource(cmd, this._shadowAtlas || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 15);
             this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.DEPTH_COMPARE)!, 16);
+            this._graphicsDevice.bindResource(cmd, shaderMaterialBuffer!, 17);
+            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.ANISO_WRAP)!, 18);
+            this._graphicsDevice.bindResource(cmd, this._screenSize, 19);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, objectEntities.length);
 
             drawcall++;

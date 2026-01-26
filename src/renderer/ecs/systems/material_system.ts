@@ -2,6 +2,7 @@ import { EN_BIND_FLAG, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_T
 import { scene } from "../scene";
 import { query } from "bitecs";
 import { TextureData } from "../components";
+import { floatSize } from "../../constant";
 
 export class MaterialSystem {
     private _needUpdate = false;
@@ -14,7 +15,8 @@ export class MaterialSystem {
             if (!materialComponent.dirty) {
                 continue;
             }
-            const { diffuseTexture, normalTexture, emissiveTexture, metallicRoughnessTexture, occlusionTexture } = materialComponent;
+            const { diffuseTexture, normalTexture, emissiveTexture, metallicRoughnessTexture,
+                occlusionTexture, roughnessFactor, metallicFactor, baseColorFactor } = materialComponent;
             this._createTextureIfNeeded(graphicsDevice, diffuseTexture).then(res => {
                 if (diffuseTexture.data.length === 0) {
                     console.warn('no diffuse texture');
@@ -60,6 +62,21 @@ export class MaterialSystem {
                     this._needUpdate = true;
                 }
             })
+
+            if (!materialComponent.shaderMaterialBuffer) {
+                materialComponent.shaderMaterialBuffer = graphicsDevice.createBuffer({
+                    size: floatSize * 8,
+                    name: 'shader material buffer',
+                    usage: EN_USAGE.DEFAULT,
+                    bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
+                    miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+                    stride: 0,
+                    count: 1,
+                })
+            }
+            materialComponent.shaderMaterialBuffer?.update(new Float32Array([
+                ...Array.from(baseColorFactor), roughnessFactor, 0, metallicFactor, 0
+            ]));
 
             materialComponent.dirty = false;
         }
@@ -117,6 +134,7 @@ export class MaterialSystem {
         const subresourceData: SubresourceData = {
             dataPtr: pixelData,
             rowRitch: width * stride,
+
             slicePitch: width * height * stride
         };
 

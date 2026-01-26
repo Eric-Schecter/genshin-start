@@ -1,4 +1,4 @@
-import { WGPUTexture } from "@eric-schecter/graphics";
+import { WGPUBuffer, WGPUTexture } from "@eric-schecter/graphics";
 import { vec4 } from "gl-matrix";
 
 export type TextureData = {
@@ -19,6 +19,8 @@ export type MaterialComponent = {
     baseColorFactor: vec4,
     metallicFactor: number,
     roughnessFactor: number,
+
+    shaderMaterialBuffer?: WGPUBuffer,
 
     type: string,
 

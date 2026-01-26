@@ -37,10 +37,10 @@ export class CameraSystem {
                 } else {
                     const halfH = orthoHeight * 0.5;
                     const halfW = halfH * aspect;
-                    const left = 0;// -halfW;
-                    const right = 4000;// halfW;
-                    const bottom = -1000;//-halfH;
-                    const top = 4000;// halfH;
+                    const left = -100;// -halfW;
+                    const right = 400;// halfW;
+                    const bottom = -100;//-halfH;
+                    const top = 400;// halfH;
 
                     cameraComponent.projMatrix = mat4.orthoZO(cameraComponent.projMatrix, left, right, bottom, top, near, far);
                 }

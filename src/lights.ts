@@ -23,7 +23,7 @@ export class Lights {
         addComponent(scene, directionalLightEntity, lights);
         lights[directionalLightEntity] = creaetDefaultLightComponent();
         lights[directionalLightEntity].type = EN_LIGHT_TYPE.DIRECTIONAL;
-        lights[directionalLightEntity].color = vec3.fromValues(255 / 255, 98 / 255, 34 / 255);
+        lights[directionalLightEntity].color = vec3.fromValues(1, 98 / 255, 34 / 255);
         lights[directionalLightEntity].intensity = 35;
 
         const shadowCameraEntity = addEntity(scene);

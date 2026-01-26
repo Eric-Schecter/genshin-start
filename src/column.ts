@@ -15,6 +15,18 @@ export class Column {
             const entity = getEntityByTag(Object);
             if (!this._prefab.has(Object)) {
                 this._prefab.set(Object, entity);
+
+                const { objects, meshes, materials, hierarchies } = scene.components;
+                for (const childEntity of query(scene, [hierarchies])) {
+                    const hierarchyComponent = hierarchies[childEntity];
+                    if (hierarchyComponent.parent === entity) {
+                        const [meshEntity] = objects[childEntity].meshEntities;
+                        const [materialEntity] = meshes[meshEntity].materialEntity;
+                        const material = materials[materialEntity]
+                        material.metallicFactor = 0.3;
+                        material.dirty = true;
+                    }
+                }
             }
         }
         for (let i = 0; i < MashList.length; i++) {

@@ -15,6 +15,7 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
     let mask = color.rgb;
 
     let col_r = mix(vec3(23., 145., 250.)/255.,vec3(0.93),vec3(pow(mask.r,0.4)));
+    color = vec4(col_r, color.a);
 
-    return vec4(col_r,color.a);
+    return color;
 }

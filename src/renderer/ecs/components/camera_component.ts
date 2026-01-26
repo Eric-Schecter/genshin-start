@@ -30,11 +30,11 @@ export type CameraComponent = {
 
 export const createDefaultCameraComponent = (): CameraComponent => {
     return {
-        fov: 45,
+        fov: 45 / 180 * Math.PI,
         aspect: 1,
         near: 0.1,
         far: 10000,
-        orthoHeight: 4096, //todo
+        orthoHeight: 1024, //todo
 
         viewMatrix: mat4.create(),
         projMatrix: mat4.create(),

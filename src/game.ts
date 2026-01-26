@@ -25,15 +25,18 @@ export class Game extends SceneRenderer {
 
     private _lights: Lights;
 
-    private _debug = false;
+    private _debug = true;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
 
         const cameraEntity = getPrimaryCamera();
-        const { transforms } = scene.components;
+        const { transforms, cameras } = scene.components;
         transforms[cameraEntity].rotation = quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180);
         transforms[cameraEntity].dirty = true;
+
+        cameras[cameraEntity].fov = 50 / 180 * Math.PI;
+        cameras[cameraEntity].dirty = true;
 
         if (this._debug) {
             this._controller = new FirstPersonController(graphicsDevice.canvas);

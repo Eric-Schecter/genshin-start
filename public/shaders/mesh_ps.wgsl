@@ -1,6 +1,13 @@
-override DISABLE_SOFT_SHADOWMAP: bool = false;
+alias ShadowMapType = u32;
+const SHADOW_TYPE_NORMAL: ShadowMapType = 0u;
+const SHADOW_TYPE_PCF: ShadowMapType = 1u;
+const SHADOW_TYPE_VSM: ShadowMapType = 2u;
+
+override SHADOWMAP_TYPE: u32 = SHADOW_TYPE_PCF;
+override CARTOON: bool = true;
 
 const PI: f32 = 3.141592653589793;
+const PI2: f32 = 6.28318531;
 
 alias LightType = u32;
 const LIGHT_TYPE_DIRECTIONAL: LightType = 0u;
@@ -16,6 +23,14 @@ struct LightData {
     params: vec4<f32>, // x: enabled, y: lightType, z: cascadeCount
 }
 
+struct ShaderMaterial {
+    baseColor: vec4<f32>,
+    roughness: f32,
+    reflectance: f32,
+    metalness: f32,
+    refraction: f32,
+}
+
 @group(0) @binding(4) var diffuseTexture: texture_2d<f32>;
 @group(0) @binding(5) var emissiveTexture: texture_2d<f32>;
 @group(0) @binding(6) var normalTexture: texture_2d<f32>;
@@ -29,6 +44,9 @@ struct LightData {
 @group(0) @binding(14) var<uniform> shadow_atlas_resolution: vec2<f32>;
 @group(0) @binding(15) var shadowAtlasTexture: texture_depth_2d;
 @group(0) @binding(16) var sampler_cmp_depth: sampler_comparison;
+@group(0) @binding(17) var<uniform> material: ShaderMaterial;
+@group(0) @binding(18) var anisoSampler: sampler;
+@group(0) @binding(19) var<uniform> screen_size: vec2<f32>;
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -42,7 +60,7 @@ struct VertexOutput {
 fn getAmbient(N:vec3<f32>) -> vec3<f32> {
     let mips = textureNumLevels(cubemap);
     let maxMip = f32(mips - 1);
-    return textureSampleLevel(cubemap, linearSampler, N, maxMip).rgb * ambientLight.rgb;
+    return textureSampleLevel(cubemap, linearSampler, N, maxMip).rgb + ambientLight.rgb;
 }
 
 struct LightingPart
@@ -139,27 +157,65 @@ fn BRDF_GetDiffuse(F:vec3<f32>, NdotL: f32) -> vec3<f32>
 //     return value.x != 0. || value.y != 0. || value.z != 0.;
 // }
 
-fn sample_shadow(uv: vec2<f32>, cmp: f32) -> f32
+// Interleaved Gradient Noise for randomizing sampling patterns
+fn interleavedGradientNoise(position: vec2<f32>) -> f32
+{
+    return fract(52.9829189 * fract(dot(position, vec2(0.06711056, 0.00583715))));
+}
+
+// Vogel disk sampling for uniform circular distribution
+fn vogelDiskSample(sampleIndex: i32, samplesCount: i32, phi: f32) -> vec2<f32>
+{
+    let goldenAngle = 2.399963229728653;
+    let r = sqrt( ( f32( sampleIndex ) + 0.5 ) / f32( samplesCount ) );
+    let theta = f32( sampleIndex ) * goldenAngle + phi;
+    return vec2( cos( theta ), sin( theta ) ) * r;
+}
+
+fn sample_shadow(uv: vec2<f32>, cmp: f32, fragCoord: vec2<f32>) -> f32
 {
     var shadow = 0.;
     let bias = 0.0005;
-if(!DISABLE_SOFT_SHADOWMAP){
-	// sample along a rectangle pattern around center:
-    for(var x = -1; x <= 1; x++){
-        for(var y = -1; y <= 1; y++){
-            let offset = vec2<f32>(f32(x), f32(y)) / shadow_atlas_resolution;
-            shadow += textureSampleCompare(
-                shadowAtlasTexture,
-                sampler_cmp_depth,
-                uv + offset,
-                cmp - bias
-            );
-        }
+    // todo: vsm
+    if(SHADOWMAP_TYPE == SHADOW_TYPE_PCF){
+        // sample along a rectangle pattern around center:
+        // for(var x = -1; x <= 1; x++){
+        //     for(var y = -1; y <= 1; y++){
+        //         let offset = vec2<f32>(f32(x), f32(y)) / shadow_atlas_resolution;
+        //         shadow += textureSampleCompare(
+        //             shadowAtlasTexture,
+        //             sampler_cmp_depth,
+        //             uv + offset,
+        //             cmp - bias
+        //         );
+        //     }
+        // }
+        // shadow = shadow / 9.0;
+
+    // Hardware PCF with LinearFilter gives us 4-tap filtering per sample
+    // 5 samples using Vogel disk + IGN = effectively 20 filtered taps with better distribution
+        let shadowRadius = 1.f;
+
+        let texelSize = vec2(1.0) / shadow_atlas_resolution;
+        let radius = shadowRadius * texelSize.x;
+
+        // Use IGN to rotate sampling pattern per pixel
+        let phi = interleavedGradientNoise(fragCoord) * PI2;
+
+        shadow = (
+            textureSampleCompare( shadowAtlasTexture, sampler_cmp_depth, uv + vogelDiskSample( 0, 5, phi ) * radius, cmp-bias) +
+            textureSampleCompare( shadowAtlasTexture, sampler_cmp_depth, uv + vogelDiskSample( 1, 5, phi ) * radius, cmp-bias) +
+            textureSampleCompare( shadowAtlasTexture, sampler_cmp_depth, uv + vogelDiskSample( 2, 5, phi ) * radius, cmp-bias) +
+            textureSampleCompare( shadowAtlasTexture, sampler_cmp_depth, uv + vogelDiskSample( 3, 5, phi ) * radius, cmp-bias) +
+            textureSampleCompare( shadowAtlasTexture, sampler_cmp_depth, uv + vogelDiskSample( 4, 5, phi ) * radius, cmp-bias)
+        ) * 0.2;
     }
-    shadow = shadow / 9.0;
-}else{
-    shadow = textureSampleCompare(shadowAtlasTexture, sampler_cmp_depth, uv, cmp - bias);
-}
+    else if(SHADOWMAP_TYPE == SHADOW_TYPE_VSM){
+
+    }
+    else{
+        shadow = textureSampleCompare(shadowAtlasTexture, sampler_cmp_depth, uv, cmp - bias);
+    }
 
     return shadow;
 }
@@ -169,18 +225,18 @@ fn shadow_border_shrink(light: LightData, shadow_uv: vec2<f32>) -> vec2<f32>
 {
     let shadow_resolution = light.shadowAtlasMulAdd.xy * shadow_atlas_resolution;
     var border_size = 1.5;
-if(DISABLE_SOFT_SHADOWMAP){
-    border_size = 0.5;
-}
+// if(DISABLE_SOFT_SHADOWMAP){
+//     border_size = 0.5;
+// }
     return clamp(shadow_uv * shadow_resolution, vec2(border_size), shadow_resolution - border_size) / shadow_resolution;
 }
 
-fn shadow_2D(light: LightData, shadow_pos: vec3<f32>, shadow_uv: vec2<f32>, cascade: u32) -> f32
+fn shadow_2D(light: LightData, shadow_pos: vec3<f32>, shadow_uv: vec2<f32>, cascade: u32, fragCoord: vec2<f32>) -> f32
 {
     var uv = shadow_border_shrink(light, shadow_uv);
     uv.x += f32(cascade);
     uv = uv * light.shadowAtlasMulAdd.xy + light.shadowAtlasMulAdd.zw;
-    return sample_shadow(uv, shadow_pos.z);
+    return sample_shadow(uv, shadow_pos.z, fragCoord);
 }
 
 fn clipspace_to_uv(clipspace: vec3<f32>) -> vec3<f32>
@@ -192,7 +248,8 @@ fn isSaturated(v: vec3<f32>) -> bool {
     return all(v >= vec3<f32>(0.0)) && all(v <= vec3<f32>(1.0));
 }
 
-fn light_directional(NdotH: f32, NdotV: f32, NdotL: f32, lightData: LightData, F: vec3<f32>, roughness: f32, world_pos: vec3<f32>) -> LightingPart
+fn light_directional(NdotH: f32, NdotV: f32, NdotL: f32, lightData: LightData,
+    F: vec3<f32>, roughness: f32, world_pos: vec3<f32>, fragCoord: vec2<f32>) -> LightingPart
 {
     var directLight = initLightingPart();
 
@@ -203,18 +260,22 @@ fn light_directional(NdotH: f32, NdotV: f32, NdotL: f32, lightData: LightData, F
         let shadow_pos = (lightData.matrix * vec4(world_pos, 1)).xyz;
         let shadow_uv = clipspace_to_uv(shadow_pos);
 
-        let shadow_main = shadow_2D(lightData, shadow_pos, shadow_uv.xy, u32(cascade));
+        let shadow_main = shadow_2D(lightData, shadow_pos, shadow_uv.xy, u32(cascade), fragCoord);
         if(isSaturated(shadow_uv)){
             shadow *= shadow_main;
         }
         break;
     }
 
-    //todo: NdotV < 0
     if(NdotL > 0 && shadow > 0.){
         let lightColor = lightData.color.rgb * shadow;
 
         directLight.diffuse = lightColor * BRDF_GetDiffuse(F, NdotL);
+
+        // let metalness= .5f;
+        // var new_roughness = (1.0-metalness)*pow(roughness,0.4);
+        // new_roughness += metalness*pow(roughness,1.2);
+
         directLight.specular = lightColor * BRDF_GetSpecular(roughness, F, NdotH, NdotV, NdotL);
     }
 
@@ -251,11 +312,18 @@ fn EnvBRDFApprox(SpecularColor: vec3<f32>, Roughness: f32, NoV: f32) -> vec3<f32
     return SpecularColor * AB.x + AB.y;
 }
 
-fn forwardLighting(N:vec3<f32>, V: vec3<f32>, f0: vec3<f32>, roughness: f32, world_pos: vec3<f32>) -> LightingPart{
+fn F_Schlick(f0: vec3<f32>, VoH: f32) -> vec3<f32>
+{
+  // Schlick 1994, "An Inexpensive BRDF Model for Physically-Based Rendering"
+    let f90 = saturate(50.0 * dot(f0, vec3(0.33))); // reflectance at grazing angle
+    return f0 + (f90 - f0) * pow(1.0 - VoH, 5);
+}
+
+fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughness: f32,
+    world_pos: vec3<f32>, fragCoord: vec2<f32>) -> LightingPart{
     var directLight = initLightingPart();
     let light_count = 64u;
 
-    let NdotV = saturate(dot(N, V) + 1e-5);
     let F = EnvBRDFApprox(f0, roughness, NdotV);
 
     for (var i = 0u; i < light_count; i++) {
@@ -264,17 +332,33 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, f0: vec3<f32>, roughness: f32, wor
         let L = normalize(light.direction.xyz);
         let H = normalize(-L + V);
 
-        let NdotL = dot(-L, N);
-        let NdotH = saturate(dot(N, H));
+        var NdotL = saturate(dot(-L, N));
+        var NdotH = saturate(dot(N, H));
         let LdotH = saturate(dot(-L, H));
         let VdotH = saturate(dot(V, H));
+
+        if(CARTOON){
+            NdotL = smoothstep(0.005, 0.05, NdotL);
+            NdotH = smoothstep(0.98, 0.99, NdotH);
+        }
 
         if(light.params.x == 1)
         {
             var res = initLightingPart();
             switch (u32(light.params.y)){
                 case LIGHT_TYPE_DIRECTIONAL {
-                    res = light_directional(NdotH, NdotV, NdotL, light, F, roughness, world_pos);
+                    res = light_directional(NdotH, NdotV, NdotL, light, F, roughness, world_pos, fragCoord);
+
+                    if(CARTOON){
+                        let fresnelCol = vec3(0.3335, 0.9020, 3.4120);
+
+                        let dotNL_reflect_faker = 1.-smoothstep(0.,0.3, dot(-L, N));
+
+                        var fresnelTerm = dot(V, N);
+                        fresnelTerm = clamp(1.0 - fresnelTerm, 0., 1.) * dotNL_reflect_faker;
+                        // res.diffuse += fresnelCol*pow(fresnelTerm,5.)*0.8;
+                        // res.diffuse = vec3(dotNL_reflect_faker);
+                    }
                     break;
                 }
                 case LIGHT_TYPE_SPOT {
@@ -299,7 +383,6 @@ fn applyLighting(lighting:Lighting, color: vec3<f32>, emissive: vec3<f32>, F: ve
 {
     let diffuse = lighting.direct.diffuse / PI + lighting.indirect.diffuse * (vec3(1.f) - F) * occlusion;
     let specular = lighting.direct.specular + lighting.indirect.specular * occlusion;
-    // let specular = vec3(0.0588, 0.4314, 1.0);
 
     return vec4(color * diffuse + specular + emissive, 1.f);
 }
@@ -309,8 +392,7 @@ fn EnvironmentReflection_Global(R: vec3<f32>, F:vec3<f32>, roughness: f32) -> ve
     let mips = textureNumLevels(cubemap);
     let maxMip = f32(mips - 1);
     let mip = roughness * maxMip;
-    // return textureSampleLevel(cubemap, linearSampler, R, mip).rgb * ambientLight.rgb * F;
-    return textureSampleLevel(cubemap, linearSampler, R, mip).rgb * F;
+    return (textureSampleLevel(cubemap, linearSampler, R, mip).rgb) * F;
 }
 
 fn env_brdf_approx(
@@ -332,7 +414,7 @@ fn env_brdf_approx(
 
 fn applyNormalMap(uv:vec2<f32>, TBN:mat3x3<f32>, n: vec3<f32>) -> vec3<f32>
 {
-    let normalmap = textureSample(normalTexture, linearSampler, uv);
+    let normalmap = textureSample(normalTexture, anisoSampler, uv);
     if(all(normalmap == vec4(0.))){
         return n;
     }
@@ -344,7 +426,7 @@ fn applyNormalMap(uv:vec2<f32>, TBN:mat3x3<f32>, n: vec3<f32>) -> vec3<f32>
 
 @fragment
 fn main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let diffuse = textureSample(diffuseTexture, linearSampler, input.uv);
+    let diffuse = textureSample(diffuseTexture, anisoSampler, input.uv) * material.baseColor;
 
     let emissive = textureSample(emissiveTexture, linearSampler, input.uv).rgb;
 
@@ -358,9 +440,9 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
     var N = applyNormalMap(input.uv, TBN, normal);
     N = normal;
 
-    let surfaceMap = textureSample(metallicRoughnessTexture, linearSampler, input.uv);
-    let roughness = surfaceMap.g;
-    let metalness = 0.f;//surfaceMap.b;
+    let surfaceMap = textureSample(metallicRoughnessTexture, anisoSampler, input.uv);
+    let roughness = surfaceMap.g * material.roughness;
+    let metalness = surfaceMap.b * material.metalness;
     let reflectance = 0.04f;
     let albedo = diffuse.rgb * (1.f - max(reflectance, metalness));
     let f0 = mix(vec3(reflectance), diffuse.rgb, metalness);
@@ -380,17 +462,24 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     let NdotV = saturate(dot(N, V) + 1e-5);
 
-    let F = env_brdf_approx(f0, roughness, NdotV);
+    var F = vec3(1.);
+    if(CARTOON){
+        F = F_Schlick(f0, NdotV);
+    }else{
+        F = env_brdf_approx(f0, roughness, NdotV);
+    }
 
     let envmapAccumulation = EnvironmentReflection_Global(R, F, roughness);
 
     lighting.indirect.specular += max(vec3<f32>(0.), envmapAccumulation);
 
-    let directLight = forwardLighting(N, V, f0, roughness, input.world_pos);
+    let directLight = forwardLighting(N, V, NdotV, f0, roughness, input.world_pos, input.position.xy/screen_size);
     lighting.direct.diffuse = directLight.diffuse;
     lighting.direct.specular = directLight.specular;
 
     let color = applyLighting(lighting, albedo, emissive, F, occlusion);
 
-    return vec4(clamp(color.rgb, vec3(0.), vec3(1.)),1.);
+    // return vec4(input.position.xy/screen_size, 0.,1.);
+    return color;
+    // return vec4(lighting.direct.diffuse,1.);
 }

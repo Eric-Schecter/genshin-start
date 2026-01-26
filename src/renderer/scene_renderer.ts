@@ -110,6 +110,7 @@ export class SceneRenderer extends Renderer {
             this._textures.forEach(texture => {
                 texture.resize(width, height);
             })
+            this._meshRenderer.resize(width, height);
 
             const { cameras } = scene.components;
             for (const entity of query(scene, [cameras])) {
@@ -270,7 +271,7 @@ export class SceneRenderer extends Renderer {
         const cameraComponent = cameras[cameraEntity];
 
         cameraComponent.isPrimary = true;
-        cameraComponent.fov = 45;
+        cameraComponent.fov = 45 / 180 * Math.PI;
         cameraComponent.aspect = width / height;
         cameraComponent.near = 50;
         cameraComponent.far = 100000;
