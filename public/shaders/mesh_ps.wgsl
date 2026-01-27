@@ -5,6 +5,8 @@ const SHADOW_TYPE_VSM: ShadowMapType = 2u;
 
 override SHADOWMAP_TYPE: u32 = SHADOW_TYPE_PCF;
 override CARTOON: bool = true;
+override USE_FOG: bool = true;
+override FOG_EXP2: bool = true;
 
 const PI: f32 = 3.141592653589793;
 const PI2: f32 = 6.28318531;
@@ -55,6 +57,7 @@ struct VertexOutput {
     @location(1) uv: vec2<f32>,
     @location(2) world_pos: vec3<f32>,
     @location(3) tangent: vec4<f32>,
+    @location(4) view_pos: vec3<f32>,
 };
 
 fn getAmbient(N:vec3<f32>) -> vec3<f32> {
@@ -477,9 +480,27 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
     lighting.direct.diffuse = directLight.diffuse;
     lighting.direct.specular = directLight.specular;
 
-    let color = applyLighting(lighting, albedo, emissive, F, occlusion);
+    var color = applyLighting(lighting, albedo, emissive, F, occlusion);
 
-    // return vec4(input.position.xy/screen_size, 0.,1.);
+    if(USE_FOG){
+        var fogFactor = 0.;
+
+        let fogDepth = -input.view_pos.z;
+        let fogColor = vec3(0.2196, 0.6039, 0.9490);
+        let fogNear = 5000.;
+        let fogFar = 10000.;
+        let fogDensity = 0.00025;
+
+        if(FOG_EXP2){
+            fogFactor = 1.0 - exp(-fogDensity * fogDensity * fogDepth * fogDepth );
+        }else{
+            fogFactor = smoothstep( fogNear, fogFar, fogDepth );
+        }
+
+        let c = mix( color.rgb, fogColor, fogFactor );
+        color = vec4(c.rgb, color.a);
+    }
+
     return color;
     // return vec4(lighting.direct.diffuse,1.);
 }

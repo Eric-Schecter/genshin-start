@@ -23,6 +23,7 @@ struct VertexOutput {
     @location(1) uv: vec2<f32>,
     @location(2) world_pos: vec3<f32>,
     @location(3) tangent: vec4<f32>,
+    @location(4) view_pos: vec3<f32>,
 };
 
 @vertex
@@ -32,11 +33,13 @@ fn main(input: VertexInput) -> VertexOutput {
     let normalMatrix = instances[params + input.instance_idx].normalMatrix;
     let world_pos = (modelMatrix * vec4<f32>(input.position, 1.0)).xyz;
     let world_normal = normalize((normalMatrix * vec4<f32>(input.normal, 0.0)).xyz);
-    out.position = proj * view * vec4(world_pos, 1.0);
+    let view_pos = view * vec4(world_pos, 1.0);
+    out.position = proj * view_pos;
     out.normal = world_normal;
     out.uv = input.uv;
     out.world_pos = world_pos;
     out.tangent = input.tangent;
+    out.view_pos = view_pos.xyz;
     return out;
 }
 
