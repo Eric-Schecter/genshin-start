@@ -21,6 +21,7 @@ export enum EN_DATA_TEXTURE_TYPE {
     BLACK,
     WHITE_CUBE,
     METAL_ROUGHNESS,
+    DEPTH,
 }
 
 export abstract class Renderer {
@@ -199,7 +200,7 @@ export abstract class Renderer {
             name: '',
         };
 
-        const stride = getFormatStride(desc.format);
+        let stride = getFormatStride(desc.format);
 
         const descBlack = { ...desc };
         descBlack.name = 'black';
@@ -235,6 +236,18 @@ export abstract class Renderer {
         descWhiteCube.name = 'white cube';
         this._dataTextures.set(EN_DATA_TEXTURE_TYPE.WHITE_CUBE, this._graphicsDevice.createTexture(descWhiteCube, [{
             dataPtr: new Uint8Array(new Array(24).fill(255)),
+            rowRitch: stride,
+            slicePitch: stride
+        }]));
+
+        const descDepth = { ...desc };
+        descDepth.name = 'depth';
+        descDepth.format = EN_FORMAT.D16_UNORM;
+
+        stride = getFormatStride(desc.format);
+
+        this._dataTextures.set(EN_DATA_TEXTURE_TYPE.DEPTH, this._graphicsDevice.createTexture(descDepth, [{
+            dataPtr: new Float32Array([1]),
             rowRitch: stride,
             slicePitch: stride
         }]));

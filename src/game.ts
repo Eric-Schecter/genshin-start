@@ -9,6 +9,7 @@ import { Cloud } from "./cloud";
 import { BigCloud } from "./big_cloud";
 import { Fog } from "./fog";
 import { Lights } from "./lights";
+import { PolarLight } from "./polar_light";
 
 export class Game extends SceneRenderer {
     private _road: Road;
@@ -25,18 +26,17 @@ export class Game extends SceneRenderer {
 
     private _lights: Lights;
 
-    private _debug = true;
+    private _polarLight: PolarLight;
+
+    private _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
 
         const cameraEntity = getPrimaryCamera();
-        const { transforms, cameras } = scene.components;
+        const { transforms } = scene.components;
         transforms[cameraEntity].rotation = quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180);
         transforms[cameraEntity].dirty = true;
-
-        cameras[cameraEntity].fov = 50 / 180 * Math.PI;
-        cameras[cameraEntity].dirty = true;
 
         if (this._debug) {
             this._controller = new FirstPersonController(graphicsDevice.canvas);
@@ -59,11 +59,13 @@ export class Game extends SceneRenderer {
         this._bigCloud = new BigCloud(graphicsDevice);
         this._fog = new Fog(graphicsDevice);
         this._lights = new Lights();
+        this._polarLight = new PolarLight(graphicsDevice);
 
         this._renderers.push(
             this._cloud,
             this._bigCloud,
             this._fog,
+            this._polarLight,
         );
 
         this._skyRenderer.envTexture = this._background.create();
@@ -74,7 +76,7 @@ export class Game extends SceneRenderer {
         Promise.all([
             // this._modelLoader.load('models/DOOR.glb'),
             this._modelLoader.load('models/SM_BigCloud.glb'),
-            // this._modelLoader.load('models/SM_Light.glb'),
+            this._modelLoader.load('models/SM_Light.glb'),
             this._modelLoader.load('models/SM_Qiao01.glb'),
             this._modelLoader.load('models/SM_Qiao02.glb'),
             this._modelLoader.load('models/SM_Qiao03.glb'),
@@ -89,6 +91,7 @@ export class Game extends SceneRenderer {
             this._road.onLoad();
             this._column.onload();
             this._bigCloud.onload();
+            this._polarLight.onload();
         });
     }
 

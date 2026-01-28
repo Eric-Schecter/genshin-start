@@ -216,7 +216,7 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, this._ambientLightBuffer, 12);
             this._graphicsDevice.bindResource(cmd, this._lightStorageBuffer, 13);
             this._graphicsDevice.bindResource(cmd, this._shadowAtlasResolution, 14);
-            this._graphicsDevice.bindResource(cmd, this._shadowAtlas || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 15);
+            this._graphicsDevice.bindResource(cmd, this._shadowAtlas || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.DEPTH)!, 15);
             this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.DEPTH_COMPARE)!, 16);
             this._graphicsDevice.bindResource(cmd, shaderMaterialBuffer!, 17);
             this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.ANISO_WRAP)!, 18);
