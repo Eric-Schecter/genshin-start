@@ -14,11 +14,12 @@ import {
     createDefaultMaterialComponent,
     invalid_id,
     clone,
+    EN_COLOR_SPACE,
 } from './ecs';
 import { createTexture, generateTangentData, vec4ArrayToFloat32Array } from './utils';
 
 export class ModelLoader {
-    private _cached = new Map<string, number>();
+    private readonly _cached = new Map<string, number>();
 
     public async load(url: string): Promise<number> {
         if (this._cached.has(url)) {
@@ -92,10 +93,10 @@ export class ModelLoader {
             const mesh = node.getMesh();
             if (mesh) {
                 const meshEntity = meshMap.get(mesh);
-                if (!meshEntity) {
-                    console.warn('cannot find mesh entity');
-                } else {
+                if (meshEntity) {
                     objectComponent.meshEntities = meshEntity;
+                } else {
+                    console.warn('cannot find mesh entity');
                 }
             } else {
                 console.log('no mesh');
@@ -114,10 +115,10 @@ export class ModelLoader {
             materials[materialEntity] = createDefaultMaterialComponent();
             const materialComponent = materials[materialEntity];
 
-            materialComponent.diffuseTexture = this._createTexture(material.getBaseColorTexture());
+            materialComponent.diffuseTexture = this._createTexture(material.getBaseColorTexture(), EN_COLOR_SPACE.SRGB);
             materialComponent.normalTexture = this._createTexture(material.getNormalTexture());
             materialComponent.occlusionTexture = this._createTexture(material.getOcclusionTexture());
-            materialComponent.emissiveTexture = this._createTexture(material.getEmissiveTexture());
+            materialComponent.emissiveTexture = this._createTexture(material.getEmissiveTexture(), EN_COLOR_SPACE.SRGB);
             materialComponent.metallicRoughnessTexture = this._createTexture(material.getMetallicRoughnessTexture());
 
             materialComponent.baseColorFactor = material.getBaseColorFactor();
@@ -210,10 +211,10 @@ export class ModelLoader {
                 }
 
                 const materialEntity = materialMap.get(material);
-                if (!materialEntity) {
-                    console.warn('cannot find material entity');
-                } else {
+                if (materialEntity) {
                     meshComponent.materialEntity.push(materialEntity);
+                } else {
+                    console.warn('cannot find material entity');
                 }
             });
 
@@ -222,8 +223,8 @@ export class ModelLoader {
         return meshMap;
     }
 
-    private _createTexture(texture: Texture | null) {
-        return createTexture(texture?.getImage(), texture?.getSize(), texture?.getName());
+    private _createTexture(texture: Texture | null, colorSpace = EN_COLOR_SPACE.LINEAR) {
+        return createTexture(texture?.getImage(), texture?.getSize(), texture?.getName(), colorSpace);
     }
     private _accessorToVec3Array(accessor: any): vec3[] {
         const arr = accessor.getArray(); // Float32Array

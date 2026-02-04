@@ -6,32 +6,33 @@ import {
     RasterizerState, RenderCommandBuffer, WGPUBuffer, WGPUTexture
 } from "@eric-schecter/graphics";
 import { query } from "bitecs";
-import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, Renderer } from "./renderer";
+import { Renderer } from "./renderer";
 import { scene, invalid_id, getPrimaryCamera, EN_LIGHT_TYPE } from "../ecs";
 import { vec3 } from "gl-matrix";
 import { getForward, quatToMat4 } from "../utils";
 import { floatSize, maxInstanceCount } from "../constant";
+import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
 
 export class MeshRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
 
-    private _lightStorageBuffer: WGPUBuffer;
+    private readonly _lightStorageBuffer: WGPUBuffer;
 
-    private _pushconstantBuffer: WGPUBuffer[] = [];
+    private readonly _pushconstantBuffer: WGPUBuffer[] = [];
 
-    private _ambientLightBuffer: WGPUBuffer;
+    private readonly _ambientLightBuffer: WGPUBuffer;
 
-    private _shadowAtlasResolution: WGPUBuffer;
+    private readonly _shadowAtlasResolution: WGPUBuffer;
 
     private _envTexture?: WGPUTexture;
 
     private _shadowAtlas?: WGPUTexture;
 
-    private _screenSize: WGPUBuffer;
+    private readonly _screenSize: WGPUBuffer;
 
-    private _maxLightCount = 64;
+    private readonly _maxLightCount = 64;
 
-    public constructor(graphicsDevice: GraphicsDevice) {
+    public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
         this._setupPipeline();
@@ -178,8 +179,8 @@ export class MeshRenderer extends Renderer {
             console.warn('no primary camera component found');
             return;
         }
-        const { viewMatrixBuffer, projMatrixBuffer, cameraPosBuffer } = cameras[primaryCameraEntity];
-        if (!viewMatrixBuffer || !projMatrixBuffer || !cameraPosBuffer) {
+        const { viewMatrixBuffer, projMatrixBuffer, cameraBuffer } = cameras[primaryCameraEntity];
+        if (!viewMatrixBuffer || !projMatrixBuffer || !cameraBuffer) {
             return;
         }
 
@@ -205,21 +206,21 @@ export class MeshRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._pushconstantBuffer[drawcall], 2);
             this._graphicsDevice.bindResource(cmd, instanceStorageBuffer, 3);
-            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
-            this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.BLACK)!, 5);
-            this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.BLACK)!, 6);
-            this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.METAL_ROUGHNESS)!, 7);
-            this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 8);
-            this._graphicsDevice.bindResource(cmd, this._envTexture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE_CUBE)!, 9);
-            this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 10);
-            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 11);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
+            this._graphicsDevice.bindResource(cmd, emissiveTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.BLACK)!, 5);
+            this._graphicsDevice.bindResource(cmd, normalTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.BLACK)!, 6);
+            this._graphicsDevice.bindResource(cmd, metallicRoughnessTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 7);
+            this._graphicsDevice.bindResource(cmd, occlusionTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 8);
+            this._graphicsDevice.bindResource(cmd, this._envTexture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE_CUBE)!, 9);
+            this._graphicsDevice.bindResource(cmd, cameraBuffer, 10);
+            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 11);
             this._graphicsDevice.bindResource(cmd, this._ambientLightBuffer, 12);
             this._graphicsDevice.bindResource(cmd, this._lightStorageBuffer, 13);
             this._graphicsDevice.bindResource(cmd, this._shadowAtlasResolution, 14);
-            this._graphicsDevice.bindResource(cmd, this._shadowAtlas || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.DEPTH)!, 15);
-            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.DEPTH_COMPARE)!, 16);
+            this._graphicsDevice.bindResource(cmd, this._shadowAtlas || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.DEPTH)!, 15);
+            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.DEPTH_COMPARE)!, 16);
             this._graphicsDevice.bindResource(cmd, shaderMaterialBuffer!, 17);
-            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.ANISO_WRAP)!, 18);
+            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.ANISO_WRAP)!, 18);
             this._graphicsDevice.bindResource(cmd, this._screenSize, 19);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, objectEntities.length);
 
@@ -318,10 +319,20 @@ export class MeshRenderer extends Renderer {
                     blendOpAlpha: EN_BLEND_OP.ADD,
                     blendEnable: true,
                     renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
+                },
+                {
+                    srcBlend: EN_BLEND.SRC_ALPHA,
+                    destBlend: EN_BLEND.INV_SRC_ALPHA,
+                    blendOp: EN_BLEND_OP.ADD,
+                    srcBlendAlpha: EN_BLEND.ONE,
+                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
+                    blendOpAlpha: EN_BLEND_OP.ADD,
+                    blendEnable: false,
+                    renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
                 }
             ],
             alphaToCoverageEnable: false,
-            independentBlendEnable: false,
+            independentBlendEnable: true,
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({

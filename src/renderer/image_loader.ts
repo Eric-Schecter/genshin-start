@@ -1,22 +1,24 @@
 import HDRjs from 'hdr.js';
+import { EN_COLOR_SPACE } from './ecs';
 
 type ImageData<T> = {
     data: T,
     width: number,
     height: number,
     name: string,
+    colorSpace: EN_COLOR_SPACE,
 }
 
 class ImageLoader {
-    private _cached = new Map<string, ImageData<Uint8Array>>();
-    private _cachedHDR = new Map<string, ImageData<Float32Array>>();
+    private readonly _cached = new Map<string, ImageData<Uint8Array>>();
+    private readonly _cachedHDR = new Map<string, ImageData<Float32Array>>();
 
     public async loadHDR(url: string): Promise<ImageData<Float32Array>> {
         if (this._cachedHDR.has(url)) {
             const data = this._cachedHDR.get(url);
             if (data === undefined) {
                 console.error('get image failed');
-                return { data: new Float32Array(), width: 0, height: 0, name: url };
+                return { data: new Float32Array(), width: 0, height: 0, name: url, colorSpace: EN_COLOR_SPACE.LINEAR };
             }
             return data;
         }
@@ -34,13 +36,13 @@ class ImageLoader {
                 data[i * 4 + 3] = 1.0;                // A
             }
 
-            const dataRes = { data, width, height, name: url };
+            const dataRes = { data, width, height, name: url, colorSpace: EN_COLOR_SPACE.LINEAR };
             this._cachedHDR.set(url, dataRes);
             return dataRes;
         }
 
         console.error('get image failed');
-        return { data: new Float32Array(), width: 0, height: 0, name: url };
+        return { data: new Float32Array(), width: 0, height: 0, name: url, colorSpace: EN_COLOR_SPACE.LINEAR };
     }
 
     public async load(url: string): Promise<ImageData<Uint8Array>> {
@@ -48,7 +50,7 @@ class ImageLoader {
             const data = this._cached.get(url);
             if (data === undefined) {
                 console.error('get image failed');
-                return { data: new Uint8Array(), width: 0, height: 0, name: url };
+                return { data: new Uint8Array(), width: 0, height: 0, name: url, colorSpace: EN_COLOR_SPACE.LINEAR };
             }
             return data;
         }
@@ -60,7 +62,7 @@ class ImageLoader {
 
         const arraybuffer = await blob.arrayBuffer();
 
-        const res = { data: new Uint8Array(arraybuffer), width, height, name: url };
+        const res = { data: new Uint8Array(arraybuffer), width, height, name: url, colorSpace: EN_COLOR_SPACE.LINEAR };
         bitmap.close();
         this._cached.set(url, res);
         return res;

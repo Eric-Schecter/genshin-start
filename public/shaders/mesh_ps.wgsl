@@ -33,13 +33,18 @@ struct ShaderMaterial {
     refraction: f32,
 }
 
+struct ShaderCamera {
+    pos: vec4<f32>,
+    params: vec4<f32>, // x: near, y: far, z: far_rcp
+}
+
 @group(0) @binding(4) var diffuseTexture: texture_2d<f32>;
 @group(0) @binding(5) var emissiveTexture: texture_2d<f32>;
 @group(0) @binding(6) var normalTexture: texture_2d<f32>;
 @group(0) @binding(7) var metallicRoughnessTexture: texture_2d<f32>;
 @group(0) @binding(8) var occlusionTexture: texture_2d<f32>;
 @group(0) @binding(9) var cubemap: texture_cube<f32>;
-@group(0) @binding(10) var<uniform> cameraPos: vec3<f32>;
+@group(0) @binding(10) var<uniform> camera: ShaderCamera;
 @group(0) @binding(11) var linearSampler: sampler;
 @group(0) @binding(12) var<uniform> ambientLight: vec4<f32>;
 @group(0) @binding(13) var<storage, read> lights: array<LightData>;
@@ -327,7 +332,7 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
     var directLight = initLightingPart();
     let light_count = 64u;
 
-    let F = EnvBRDFApprox(f0, roughness, NdotV);
+    var F = F_Schlick(f0, NdotV);
 
     for (var i = 0u; i < light_count; i++) {
         let light = lights[i];
@@ -384,7 +389,8 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
 
 fn applyLighting(lighting:Lighting, color: vec3<f32>, emissive: vec3<f32>, F: vec3<f32>, occlusion: f32) -> vec4<f32>
 {
-    let diffuse = lighting.direct.diffuse / PI + lighting.indirect.diffuse * (vec3(1.f) - F) * occlusion;
+    // let diffuse = lighting.direct.diffuse / PI + lighting.indirect.diffuse * (vec3(1.f) - F) * occlusion;
+    let diffuse = lighting.direct.diffuse + lighting.indirect.diffuse * (vec3(1.f) - F) * occlusion;
     let specular = lighting.direct.specular + lighting.indirect.specular * occlusion;
 
     return vec4(color * diffuse + specular + emissive, 1.f);
@@ -427,8 +433,13 @@ fn applyNormalMap(uv:vec2<f32>, TBN:mat3x3<f32>, n: vec3<f32>) -> vec3<f32>
     return normalize(mix(normal, TBN * normal, length(normal)));
 }
 
+struct FragmentOutput {
+    @location(0) color: vec4<f32>,
+    @location(1) depth: vec4<f32>,
+};
+
 @fragment
-fn main(input: VertexOutput) -> @location(0) vec4<f32> {
+fn main(input: VertexOutput) -> FragmentOutput  {
     let diffuse = textureSample(diffuseTexture, anisoSampler, input.uv) * material.baseColor;
 
     let emissive = textureSample(emissiveTexture, linearSampler, input.uv).rgb;
@@ -457,7 +468,7 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
     let ambient = getAmbient(N);
     lighting.indirect.diffuse = ambient;
 
-    var V = cameraPos - input.world_pos;
+    var V = camera.pos.xyz - input.world_pos;
     let dist = length(V);
     V /= dist;
 
@@ -478,7 +489,7 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     let directLight = forwardLighting(N, V, NdotV, f0, roughness, input.world_pos, input.position.xy/screen_size);
     lighting.direct.diffuse = directLight.diffuse;
-    lighting.direct.specular = directLight.specular;
+    // lighting.direct.specular = directLight.specular;
 
     var color = applyLighting(lighting, albedo, emissive, F, occlusion);
 
@@ -501,6 +512,13 @@ fn main(input: VertexOutput) -> @location(0) vec4<f32> {
         color = vec4(c.rgb, color.a);
     }
 
-    return color;
+    let far_rcp = camera.params.z;
+    let linearDepth = -input.view_pos.z * far_rcp;
+
+    var output: FragmentOutput;
+    output.color = color;
+    output.depth = vec4(vec3(linearDepth), 1.);
+    return output;
+
     // return vec4(lighting.direct.diffuse,1.);
 }

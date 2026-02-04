@@ -8,9 +8,10 @@ import { ArcBallController, Controller } from './controller';
 import {
     SkyRenderer, Renderer, MipmapGenerator, ImageRenderer, MeshRenderer,
     ShadowRenderer,
+    ResourceManager,
 } from './renderers';
 import { ModelLoader } from './model_loader';
-import { Tonemap } from './pass/tonemap';
+import { Tonemap, Bloom, Gaussian } from './pass';
 import {
     CameraSystem, creaetDefaultTransformComponent, scene, TransformSystem,
     MeshSystem, MaterialSystem,
@@ -20,47 +21,63 @@ import {
 import { addComponent, addEntity, query } from "bitecs";
 import { floatSize, maxInstanceCount } from "./constant";
 
+export enum EN_ENABLE_FLAG {
+    NONE = 0,
+    BLOOM = 1,
+}
+
 export class SceneRenderer extends Renderer {
     private _needUpdate = 1;
-    private _alwaysUpdate = 1;
+    private readonly _alwaysUpdate = 1;
+
+    protected readonly _resourceManager: ResourceManager;
 
     private _colorTexture: WGPUTexture;
 
     private _depthStencilTexture: WGPUTexture;
+    private _linearDepthTexture: WGPUTexture;
 
     private _resolvedTexture1: WGPUTexture;
     private _resolvedTexture2: WGPUTexture;
+    private _resolvedTextureDepth: WGPUTexture;
 
-    private _textures: WGPUTexture[] = [];
+    private readonly _textures: WGPUTexture[] = [];
 
     protected _skyRenderer: SkyRenderer;
-    private _shadowRenderer: ShadowRenderer;
-    private _imageRenderer: ImageRenderer;
+    private readonly _shadowRenderer: ShadowRenderer;
+    private readonly _imageRenderer: ImageRenderer;
     protected _meshRenderer: MeshRenderer;
     protected _renderers: Renderer[] = [];
-    private _mipmapGenerator: MipmapGenerator;
+    private readonly _mipmapGenerator: MipmapGenerator;
+    private readonly _gaussian: Gaussian;
 
-    private _tonemap: Tonemap;
+    private readonly _tonemap: Tonemap;
+    private readonly _bloom: Bloom;
 
-    private _transformSystem: TransformSystem;
-    private _cameraSystem: CameraSystem;
-    private _lightSystem: LightSystem;
-    private _meshSystem: MeshSystem;
-    private _materialSystem: MaterialSystem;
+    private readonly _transformSystem: TransformSystem;
+    private readonly _cameraSystem: CameraSystem;
+    private readonly _lightSystem: LightSystem;
+    private readonly _meshSystem: MeshSystem;
+    private readonly _materialSystem: MaterialSystem;
 
     private _time: number;
+    private _startTime: number;
 
     protected _modelLoader: ModelLoader;
     protected _controller: Controller;
 
-    private _renderBatch = new Map<number, number[]>(); // mesh entity -> object entities
+    private readonly _renderBatch = new Map<number, number[]>(); // mesh entity -> object entities
 
-    private _instanceStorageBuffer: WGPUBuffer;
+    private readonly _instanceStorageBuffer: WGPUBuffer;
+
+    private _enableFlag = EN_ENABLE_FLAG.NONE;
 
     // private _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
+
+        this._resourceManager = new ResourceManager(graphicsDevice);
 
         this._transformSystem = new TransformSystem();
         this._cameraSystem = new CameraSystem();
@@ -68,21 +85,24 @@ export class SceneRenderer extends Renderer {
         this._meshSystem = new MeshSystem();
         this._materialSystem = new MaterialSystem();
 
-        this._skyRenderer = new SkyRenderer(graphicsDevice);
-        this._imageRenderer = new ImageRenderer(graphicsDevice);
-        this._mipmapGenerator = new MipmapGenerator(graphicsDevice);
+        this._skyRenderer = new SkyRenderer(graphicsDevice, this._resourceManager);
+        this._imageRenderer = new ImageRenderer(graphicsDevice, this._resourceManager);
+        this._gaussian = new Gaussian(graphicsDevice, this._resourceManager);
+        this._mipmapGenerator = new MipmapGenerator(graphicsDevice, this._resourceManager, this._gaussian);
         this._modelLoader = new ModelLoader();
 
-        this._meshRenderer = new MeshRenderer(graphicsDevice);
+        this._meshRenderer = new MeshRenderer(graphicsDevice, this._resourceManager);
         this._shadowRenderer = new ShadowRenderer(graphicsDevice);
 
         this._createTextures();
 
-        this._tonemap = new Tonemap(graphicsDevice);
+        this._tonemap = new Tonemap(graphicsDevice, this._resourceManager);
+        this._bloom = new Bloom(graphicsDevice, this._resourceManager);
 
         this._setupDefaultCamera();
 
         this._time = performance.now();
+        this._startTime = this._time;
 
         this._renderers.push(this._skyRenderer);
 
@@ -125,7 +145,19 @@ export class SceneRenderer extends Renderer {
         observer.observe(this._graphicsDevice.canvas);
     }
 
-    public update(dt: number) {
+    public enable(value: EN_ENABLE_FLAG) {
+        this._enableFlag |= value;
+    }
+
+    public disable(value: EN_ENABLE_FLAG) {
+        this._enableFlag &= ~value;
+    }
+
+    public isEnable(value: EN_ENABLE_FLAG): boolean {
+        return (this._enableFlag & value) === value;
+    }
+
+    public update(dt: number, et: number) {
         if (!this._controller) {
             this._controller = new ArcBallController(this._graphicsDevice.canvas);
         }
@@ -136,7 +168,7 @@ export class SceneRenderer extends Renderer {
         this._needUpdate += this._lightSystem.update(this._graphicsDevice, this._shadowRenderer.shadowAtlas);
         this._needUpdate += this._transformSystem.update();
 
-        this._renderers.forEach(renderer => renderer.update(dt));
+        this._renderers.forEach(renderer => renderer.update(dt, et));
         this._meshRenderer.update();
         this._shadowRenderer.update();
 
@@ -147,7 +179,7 @@ export class SceneRenderer extends Renderer {
     public render(): void {
         let now = performance.now();
         let deltaTime = now - this._time;
-        this.update(deltaTime * 0.001);
+        this.update(deltaTime * 0.001, (this._time - this._startTime) * 0.001);
         this._time = now;
 
         if (this._needUpdate) {
@@ -193,10 +225,10 @@ export class SceneRenderer extends Renderer {
                 if (materials[materialEntities[0]].type !== 'default') {
                     continue;
                 }
-                if (!this._renderBatch.has(meshEntity)) {
-                    this._renderBatch.set(meshEntity, [entity]);
-                } else {
+                if (this._renderBatch.has(meshEntity)) {
                     this._renderBatch.get(meshEntity)?.push(entity);
+                } else {
+                    this._renderBatch.set(meshEntity, [entity]);
                 }
             }
         }
@@ -231,13 +263,15 @@ export class SceneRenderer extends Renderer {
 
     private _renderScene(cmd: RenderCommandBuffer) {
         this._graphicsDevice.beginEvent(cmd, 'render mesh');
+
         this._graphicsDevice.beginRenderPass(cmd,
             [RenderPassImage.renderTarget({ resource: this._colorTexture, resolveTarget: this._resolvedTexture1, load_op: EN_LOAD_OP.CLEAR }),
+            RenderPassImage.renderTarget({ resource: this._linearDepthTexture, resolveTarget: this._resolvedTextureDepth, load_op: EN_LOAD_OP.CLEAR }),
             RenderPassImage.depthStencil({ resource: this._depthStencilTexture, load_op: EN_LOAD_OP.CLEAR })]
         );
 
-        this._renderers.forEach(renderer => renderer.render(cmd));
         this._meshRenderer.render(cmd, this._renderBatch, this._instanceStorageBuffer);
+        this._renderers.forEach(renderer => renderer.render(cmd));
 
         this._graphicsDevice.endRenderPass(cmd);
         this._graphicsDevice.endEvent(cmd);
@@ -254,11 +288,24 @@ export class SceneRenderer extends Renderer {
     }
 
     private _postprocess(cmd: RenderCommandBuffer) {
-        this._tonemap.render(cmd, this._resolvedTexture1, this._resolvedTexture2);
+        if (this.isEnable(EN_ENABLE_FLAG.BLOOM)) {
+            this._bloom.render(cmd, this._resolvedTexture1, this._resolvedTextureDepth, this._mipmapGenerator);
+        }
 
-        [this._resolvedTexture2, this._resolvedTexture1] = [this._resolvedTexture1, this._resolvedTexture2];
+        this._tonemap.render(
+            cmd,
+            this._resolvedTexture1,
+            this._resolvedTexture2,
+            this._bloom.exposure,
+            this.isEnable(EN_ENABLE_FLAG.BLOOM) ? this._bloom.res : undefined);
+
+        this._swap();
 
         return this._resolvedTexture1;
+    }
+
+    private _swap() {
+        [this._resolvedTexture2, this._resolvedTexture1] = [this._resolvedTexture1, this._resolvedTexture2];
     }
 
     private _setupDefaultCamera() {
@@ -286,43 +333,56 @@ export class SceneRenderer extends Renderer {
 
         const colorFormat = EN_FORMAT.R16G16B16A16_FLOAT;
 
-        {
-            this._colorTexture = this._graphicsDevice.createTexture({
-                type: EN_TEX_TYPE.TEXTURE_2D,
-                width,
-                height,
-                depth: 1,
-                arraySize: 1,
-                mipLevels: 1,
-                usage: EN_USAGE.DEFAULT,
-                format: colorFormat,
-                sampleCount,
-                bindFlags: EN_BIND_FLAG.RENDER_TARGET,
-                miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-                clear: { color: vec4.fromValues(0.2, 0.2, 0.2, 1) },
-                layout: EN_RESOURCE_STATE.RENDERTARGET,
-                name: 'color render target'
-            });
-        }
+        this._colorTexture = this._graphicsDevice.createTexture({
+            type: EN_TEX_TYPE.TEXTURE_2D,
+            width,
+            height,
+            depth: 1,
+            arraySize: 1,
+            mipLevels: 1,
+            usage: EN_USAGE.DEFAULT,
+            format: colorFormat,
+            sampleCount,
+            bindFlags: EN_BIND_FLAG.RENDER_TARGET,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            clear: { color: vec4.fromValues(0.2, 0.2, 0.2, 1) },
+            layout: EN_RESOURCE_STATE.RENDERTARGET,
+            name: 'color render target'
+        });
 
-        {
-            this._depthStencilTexture = this._graphicsDevice.createTexture({
-                type: EN_TEX_TYPE.TEXTURE_2D,
-                width,
-                height,
-                depth: 1,
-                arraySize: 1,
-                mipLevels: 1,
-                usage: EN_USAGE.DEFAULT,
-                format: EN_FORMAT.D24_UNORM_S8_UINT,
-                sampleCount,
-                bindFlags: EN_BIND_FLAG.RENDER_TARGET,
-                miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-                clear: { depth: 1, stencil: 0 },
-                layout: EN_RESOURCE_STATE.RENDERTARGET,
-                name: 'depth stencil render target'
-            });
-        }
+        this._linearDepthTexture = this._graphicsDevice.createTexture({
+            type: EN_TEX_TYPE.TEXTURE_2D,
+            width,
+            height,
+            depth: 1,
+            arraySize: 1,
+            mipLevels: 1, // todo
+            usage: EN_USAGE.DEFAULT,
+            format: colorFormat, // todo
+            sampleCount,
+            bindFlags: EN_BIND_FLAG.RENDER_TARGET | EN_BIND_FLAG.SHADER_RESOURCE,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            clear: { color: vec4.fromValues(1, 1, 1, 1) },
+            layout: EN_RESOURCE_STATE.RENDERTARGET,
+            name: 'linear depth render target'
+        });
+
+        this._depthStencilTexture = this._graphicsDevice.createTexture({
+            type: EN_TEX_TYPE.TEXTURE_2D,
+            width,
+            height,
+            depth: 1,
+            arraySize: 1,
+            mipLevels: 1,
+            usage: EN_USAGE.DEFAULT,
+            format: EN_FORMAT.D24_UNORM_S8_UINT,
+            sampleCount,
+            bindFlags: EN_BIND_FLAG.RENDER_TARGET,
+            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+            clear: { depth: 1, stencil: 0 },
+            layout: EN_RESOURCE_STATE.RENDERTARGET,
+            name: 'depth stencil render target'
+        });
 
         {
             const desc = {
@@ -343,122 +403,16 @@ export class SceneRenderer extends Renderer {
             };
             this._resolvedTexture1 = this._graphicsDevice.createTexture(desc);
             this._resolvedTexture2 = this._graphicsDevice.createTexture(desc);
-        }
+            this._resolvedTextureDepth = this._graphicsDevice.createTexture({ ...desc, format: colorFormat, name: 'linear depth render target resolved' });
+        };
 
         this._textures.push(
             this._colorTexture,
+            this._linearDepthTexture,
             this._depthStencilTexture,
             this._resolvedTexture1,
-            this._resolvedTexture2);
+            this._resolvedTexture2,
+            this._resolvedTextureDepth,
+        );
     }
-
-    // private async _getDataFromBuffer(buffer: WGPUBuffer, width: number, height: number, bytesPerRow: number) {
-    //     await buffer.resource.mapAsync(GPUMapMode.READ);
-    //     const mappedData = buffer.resource.getMappedRange();
-    //     // const data = new Uint8ClampedArray(buffer.mappedData);
-
-    //     const data = new Float32Array(mappedData);
-
-    //     const imageData = new ImageData(width, height);
-    //     console.log(width, height,111);
-    //     for (let y = 0; y < height; y++) {
-    //         for (let x = 0; x < width; x++) {
-    //             const srcIdx = y * bytesPerRow + x * 4;
-    //             const dstIdx = (y * width + x) * 4;
-
-    //             imageData.data[dstIdx] = data[srcIdx + 2] * 255;     // R
-    //             imageData.data[dstIdx + 1] = data[srcIdx + 1]* 255; // G
-    //             imageData.data[dstIdx + 2] = data[srcIdx]* 255;     // B
-    //             imageData.data[dstIdx + 3] = data[srcIdx + 3]* 255; // A
-    //         }
-    //     }
-
-    //     console.log(data,11133);
-
-    //     buffer.resource.unmap();
-
-    //     return imageData;
-    // }
-
-    // private async _displayMipmaps(texture: WGPUTexture) {
-    //     const maxWidth = 512;
-    //     const padding = 4;
-    //     const backgroundColor = '#1a1a1a';
-    //     const showInfo = true;
-
-    //     const canvas = document.createElement('canvas');
-    //     canvas.style.position = 'fixed';
-    //     canvas.style.top = '0px';
-    //     canvas.style.left = '0px';
-    //     const ctx = canvas.getContext('2d')!;
-
-    //     const mipLevels = texture.resource.mipLevelCount || 1;
-    //     let totalWidth = 0, maxHeight = 0;
-    //     const mipSizes = [];
-
-    //     for (let level = 0; level < mipLevels; level++) {
-    //         const width = Math.max(1, texture.resource.width >> level);
-    //         const height = Math.max(1, texture.resource.height >> level);
-
-    //         const scale = Math.min(1, maxWidth / width);
-    //         const displayWidth = width * scale;
-    //         const displayHeight = height * scale;
-
-    //         mipSizes.push({ width, height, displayWidth, displayHeight });
-    //         totalWidth += displayWidth + padding;
-    //         maxHeight = Math.max(maxHeight, displayHeight);
-    //     }
-
-    //     canvas.width = totalWidth;
-    //     canvas.height = maxHeight + (showInfo ? 30 : 0);
-
-    //     ctx.fillStyle = backgroundColor;
-    //     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    //     const alignedBytes = 256;
-    //     let x = 0;
-    //     for (let level = 0; level < mipLevels; level++) {
-    //         const { width, height, displayWidth, displayHeight } = mipSizes[level];
-
-    //         const bytesPerRow = alignTo(width * alignedBytes, alignedBytes);
-    //         const bufferSize = bytesPerRow * height;
-
-    //         const cmdBuffer = new CopyCommandBuffer(this._graphicsDevice, EN_USAGE.READBACK, bufferSize);
-
-    //         const cmd = cmdBuffer.begin();
-
-    //         this._graphicsDevice.copyTextureToBuffer(cmd, cmdBuffer.stagingBuffer, 0, texture, level);
-
-    //         cmdBuffer.end();
-
-    //         const imageData = await this._getDataFromBuffer(cmdBuffer.stagingBuffer, width, height, bytesPerRow);
-
-    //         {
-    //             ctx.putImageData(imageData, 0, 0, 0, 0, width, height);
-
-    //             ctx.drawImage(
-    //                 ctx.canvas,
-    //                 0, 0, width, height,
-    //                 x, 0, displayWidth, displayHeight
-    //             );
-
-    //             ctx.strokeStyle = '#666';
-    //             ctx.strokeRect(x, 0, displayWidth, displayHeight);
-
-    //             if (showInfo) {
-    //                 ctx.fillStyle = 'white';
-    //                 ctx.font = '12px monospace';
-    //                 ctx.fillText(
-    //                     `L${level}: ${width}×${height}`,
-    //                     x + 5,
-    //                     displayHeight + 20
-    //                 );
-    //             }
-
-    //             x += displayWidth + padding;
-    //         }
-    //     }
-
-    //     return canvas;
-    // }
 }

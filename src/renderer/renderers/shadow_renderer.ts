@@ -16,13 +16,13 @@ import { floatSize, maxInstanceCount } from "../constant";
 export class ShadowRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
 
-    private _pushconstantBuffer: WGPUBuffer[] = [];
+    private readonly _pushconstantBuffer: WGPUBuffer[] = [];
 
     private _shadowAtlas: WGPUTexture;
 
-    private _packer: Packer;
+    private readonly _packer: Packer;
 
-    private _maxShadowResolution2D = 1024;
+    private readonly _maxShadowResolution2D = 1024;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);

@@ -1,6 +1,6 @@
 import { GraphicsDevice } from "@eric-schecter/graphics";
 import { quat, vec3 } from "gl-matrix";
-import { FirstPersonController, getPrimaryCamera, SceneRenderer, scene } from "./renderer";
+import { FirstPersonController, getPrimaryCamera, SceneRenderer, scene, EN_ENABLE_FLAG } from "./renderer";
 import { Road } from "./road";
 import { ForwardController } from "./forward_controller";
 import { Column } from "./column";
@@ -12,26 +12,21 @@ import { Lights } from "./lights";
 import { PolarLight } from "./polar_light";
 
 export class Game extends SceneRenderer {
-    private _road: Road;
+    private readonly _road: Road;
+    private readonly _column: Column;
+    private readonly _background: BackGround;
+    private readonly _cloud: Cloud;
+    private readonly _bigCloud: BigCloud;
+    private readonly _fog: Fog;
+    private readonly _lights: Lights;
+    private readonly _polarLight: PolarLight;
 
-    private _column: Column;
-
-    private _background: BackGround;
-
-    private _cloud: Cloud;
-
-    private _bigCloud: BigCloud;
-
-    private _fog: Fog;
-
-    private _lights: Lights;
-
-    private _polarLight: PolarLight;
-
-    private _debug = false;
+    private readonly _debug = true;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
+
+        this.enable(EN_ENABLE_FLAG.BLOOM);
 
         const cameraEntity = getPrimaryCamera();
         const { transforms } = scene.components;
@@ -55,17 +50,17 @@ export class Game extends SceneRenderer {
         this._road = new Road();
         this._column = new Column();
         this._background = new BackGround(this._graphicsDevice);
-        this._cloud = new Cloud(graphicsDevice);
-        this._bigCloud = new BigCloud(graphicsDevice);
+        this._cloud = new Cloud(graphicsDevice, this._resourceManager);
+        this._bigCloud = new BigCloud(graphicsDevice, this._resourceManager);
         this._fog = new Fog(graphicsDevice);
         this._lights = new Lights();
-        this._polarLight = new PolarLight(graphicsDevice);
+        this._polarLight = new PolarLight(graphicsDevice, this._resourceManager);
 
         this._renderers.push(
-            this._cloud,
             this._bigCloud,
-            this._fog,
+            this._cloud,
             this._polarLight,
+            this._fog,
         );
 
         this._skyRenderer.envTexture = this._background.create();
@@ -86,7 +81,7 @@ export class Game extends SceneRenderer {
             this._modelLoader.load('models/SM_ZhuZi02.glb'),
             this._modelLoader.load('models/SM_ZhuZi03.glb'),
             this._modelLoader.load('models/SM_ZhuZi04.glb'),
-            // this._modelLoader.load('models/WHITE_PLANE.glb'),
+            this._modelLoader.load('models/WHITE_PLANE.glb'),
         ]).then(() => {
             this._road.onLoad();
             this._column.onload();
@@ -95,12 +90,12 @@ export class Game extends SceneRenderer {
         });
     }
 
-    public update(dt: number) {
+    public update(dt: number, et: number) {
         this._controller.update(dt);
         this._road.update(dt);
         this._column.update(dt);
         this._lights.update();
 
-        super.update(dt);
+        super.update(dt, et);
     }
 }

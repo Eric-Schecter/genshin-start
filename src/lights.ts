@@ -6,9 +6,9 @@ import {
 import { mat3, mat4, quat, vec3 } from "gl-matrix";
 
 export class Lights {
-    private _directionalLightEntity = invalid_id;
+    private readonly _directionalLightEntity: number = invalid_id;
 
-    private _offset = vec3.create();
+    private readonly _offset = vec3.create();
 
     public constructor() {
         const { lights, transforms, cameras } = scene.components;
@@ -54,7 +54,7 @@ export class Lights {
         if (this._directionalLightEntity === invalid_id) {
             return;
         }
-        const { transforms, lights} = scene.components;
+        const { transforms, lights } = scene.components;
         const primaryCameraEntity = getPrimaryCamera();
         const cameraCenter = transforms[primaryCameraEntity].translation;
 

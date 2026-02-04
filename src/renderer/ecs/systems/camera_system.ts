@@ -16,19 +16,14 @@ export class CameraSystem {
         for (const entity of query(scene, [cameras, transforms])) {
             const cameraComponent = cameras[entity];
             const transformComponent = transforms[entity];
-            if (!cameraComponent.cameraPosBuffer) {
-                cameraComponent.cameraPosBuffer = setupUniformBuffer(graphicsDevice, Array.from(transformComponent.translation), 'camera pos');
-            }
+            const { near, far } = cameraComponent;
+            cameraComponent.cameraBuffer ??= setupUniformBuffer(graphicsDevice, [...Array.from(transformComponent.translation), 1, near, far, 1 / far, 0], 'camera');
         }
 
         for (const entity of query(scene, [cameras])) {
             const cameraComponent = cameras[entity];
-            if (!cameraComponent.viewMatrixBuffer) {
-                cameraComponent.viewMatrixBuffer = setupUniformBuffer(graphicsDevice, Array.from(mat4.create()), 'view matrix');
-            }
-            if (!cameraComponent.projMatrixBuffer) {
-                cameraComponent.projMatrixBuffer = setupUniformBuffer(graphicsDevice, Array.from(cameraComponent.projMatrix), 'proj matrix');
-            }
+            cameraComponent.viewMatrixBuffer ??= setupUniformBuffer(graphicsDevice, Array.from(mat4.create()), 'view matrix');
+            cameraComponent.projMatrixBuffer ??= setupUniformBuffer(graphicsDevice, Array.from(cameraComponent.projMatrix), 'proj matrix');
 
             if (cameraComponent.dirty) {
                 const { fov, aspect, near, far, type, orthoHeight } = cameraComponent;
@@ -63,10 +58,11 @@ export class CameraSystem {
                 transformComponent.dirty = true;
 
                 // todo
-                cameraComponent.inverse_view_projection = mat4.invert(mat4.create(), mat4.mul(mat4.create(), cameraComponent.projMatrix, view)) || mat4.create();
+                const { near, far, projMatrix } = cameraComponent;
+                cameraComponent.inverse_view_projection = mat4.invert(mat4.create(), mat4.mul(mat4.create(), projMatrix, view)) || mat4.create();
 
                 cameraComponent.viewMatrixBuffer?.update(new Float32Array(view));
-                cameraComponent.cameraPosBuffer?.update(new Float32Array(controller.pos));
+                cameraComponent.cameraBuffer?.update(new Float32Array([...controller.pos, 1, near, far, 1 / far, 0]));
 
                 res = 1;
             }

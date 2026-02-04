@@ -4,12 +4,14 @@ struct Params
 {
     outputResolution: vec2<f32>,
     outputResolution_rcp: vec2<f32>,
+    bloom: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> params: Params;
 @group(0) @binding(1) var inputTexture: texture_2d<f32>;
-@group(0) @binding(2) var texSampler: sampler;
+@group(0) @binding(2) var sampler_linear_clamp: sampler;
 @group(0) @binding(3) var outputTexture: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(4) var bloomTexture: texture_2d<f32>;
 
 const ACES_INPUT_MAT: mat3x3<f32> = mat3x3<f32>(
     vec3<f32>(0.59719, 0.07600, 0.02840),
@@ -56,8 +58,22 @@ fn ApplySRGBCurve_Fast_Mix(x: vec3<f32>) -> vec3<f32> {
 fn main(@builtin(global_invocation_id) DTid: vec3<u32>) {
     let uv = (vec2<f32>(DTid.xy) + vec2(0.5, 0.5)) * params.outputResolution_rcp;
 
-    let hdr = textureSampleLevel(inputTexture, texSampler, uv, 0);
-    let aces = ACESFitted(hdr.rgb);
+    var hdr = textureSampleLevel(inputTexture, sampler_linear_clamp, uv, 0).rgb;
+
+    // bloom
+    let exposure = params.bloom.x;
+    hdr *= exposure;
+
+    var bloom = textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 1.5f).rgb;
+    bloom += textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 3.5f).rgb;
+    bloom += textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 4.5f).rgb;
+    bloom /= 3.0f;
+    hdr += bloom;
+
+    //    var bloom = textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 0.f).rgb;
+
+    // tonemap
+    let aces = ACESFitted(hdr);
     let color = ApplySRGBCurve_Fast_Mix(aces);
 
     textureStore(outputTexture, DTid.xy, vec4(color,1.f));

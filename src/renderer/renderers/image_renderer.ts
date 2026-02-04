@@ -3,12 +3,13 @@ import {
     EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_PRIMITIVE_TOPOLOGY, EN_STENCIL_OP, GraphicsDevice, GraphicsPipeline,
     RasterizerState, RenderCommandBuffer, WGPUTexture
 } from "@eric-schecter/graphics";
-import { EN_SAMPLER_TYPE, Renderer } from "./renderer";
+import { Renderer } from "./renderer";
+import { EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
 
 export class ImageRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
 
-    public constructor(graphicsDevice: GraphicsDevice) {
+    public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
         this._setupPipeline();
@@ -23,7 +24,7 @@ export class ImageRenderer extends Renderer {
         }
         this._graphicsDevice.bindPipeline(cmd, this._pipeline);
         this._graphicsDevice.bindResource(cmd, texture, 0);
-        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 1);
+        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 1);
         this._graphicsDevice.draw(cmd, 3);
     }
 

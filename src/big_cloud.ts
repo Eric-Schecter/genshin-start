@@ -1,15 +1,21 @@
 import { vec3 } from "gl-matrix";
-import { BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_TEX_TYPE, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer } from "@eric-schecter/graphics";
-import { scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, getEntityByTag, createDefaultMaterialComponent } from "./renderer";
+import {
+    BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK,
+    EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP,
+    EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
+} from "@eric-schecter/graphics";
+import {
+    scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, getEntityByTag, createDefaultMaterialComponent,
+    EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager
+} from "./renderer";
 import { addComponent, addEntity, query } from "bitecs";
-import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE } from "./renderer/renderers";
 
 export class BigCloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
 
     private _cloudBGPipeline: GraphicsPipeline;
 
-    private _modelBuffers: WGPUBuffer[] = [];
+    private readonly _modelBuffers: WGPUBuffer[] = [];
 
     private _bigCloudEntity = invalid_id;
 
@@ -17,7 +23,7 @@ export class BigCloud extends Renderer {
 
     private _cloudBgEntity = invalid_id;
 
-    public constructor(graphicsDevice: GraphicsDevice) {
+    public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
         for (let i = 0; i < 2; i++) {
@@ -136,8 +142,8 @@ export class BigCloud extends Renderer {
             this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._modelBuffers[0], 2);
-            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
-            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
+            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, 1);
         }
 
@@ -164,8 +170,8 @@ export class BigCloud extends Renderer {
             this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
             this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
             this._graphicsDevice.bindResource(cmd, this._modelBuffers[1], 2);
-            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
-            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
+            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+            this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
             this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, 1);
         }
     }
@@ -255,10 +261,20 @@ export class BigCloud extends Renderer {
                     blendOpAlpha: EN_BLEND_OP.ADD,
                     blendEnable: true,
                     renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
+                },
+                {
+                    srcBlend: EN_BLEND.SRC_ALPHA,
+                    destBlend: EN_BLEND.INV_SRC_ALPHA,
+                    blendOp: EN_BLEND_OP.ADD,
+                    srcBlendAlpha: EN_BLEND.ONE,
+                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
+                    blendOpAlpha: EN_BLEND_OP.ADD,
+                    blendEnable: false,
+                    renderTargetWriteMask: EN_COLOR_WRITE.DISABLE
                 }
             ],
             alphaToCoverageEnable: false,
-            independentBlendEnable: false,
+            independentBlendEnable: true,
         };
 
         this._cloudPipeline = this._graphicsDevice.createPipeline({

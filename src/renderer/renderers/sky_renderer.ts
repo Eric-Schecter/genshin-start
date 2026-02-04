@@ -7,13 +7,14 @@ import {
     SubresourceData, TextureDesc, WGPUBuffer, WGPUTexture,
     ComputePipeline, RenderCommandBuffer
 } from "@eric-schecter/graphics";
-import { EN_SAMPLER_TYPE, Renderer } from "./renderer";
+import { Renderer } from "./renderer";
 import { mat4, vec3, vec4, glMatrix } from "gl-matrix";
-import { MipmapGenerator } from "./mipmap_generator";
+import { EN_MIPGENFILTER, MipmapGenerator } from "./mipmap_generator";
 import { GENERATEMIPCHAIN_2D_BLOCK_SIZE } from "./constant";
 import { scene } from "../ecs";
 import { query } from "bitecs";
 import { imageLoader } from "../image_loader";
+import { EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
 
 export class SkyRenderer extends Renderer {
     private _enable = true;
@@ -23,9 +24,9 @@ export class SkyRenderer extends Renderer {
     private _envrenderingDepthTexture: WGPUTexture;
     private _envrenderingColorTextureFiltered: WGPUTexture;
 
-    private _cameraUniformBuffer: WGPUBuffer;
+    private readonly _cameraUniformBuffer: WGPUBuffer;
 
-    private _cameraUniform = new Float32Array(20);
+    private readonly _cameraUniform = new Float32Array(20);
 
     private _skyPipeline: GraphicsPipeline;
     private _skyCubemapPipeline: GraphicsPipeline;
@@ -33,15 +34,15 @@ export class SkyRenderer extends Renderer {
 
     private _filterEnvMapPipeline: ComputePipeline;
 
-    private _camerasUniformBuffer: WGPUBuffer;
+    private readonly _camerasUniformBuffer: WGPUBuffer;
 
-    private _camerasUniform = new Float32Array(16 * 6);
+    private readonly _camerasUniform = new Float32Array(16 * 6);
 
-    private _paramsUniforms: WGPUBuffer[] = [];
+    private readonly _paramsUniforms: WGPUBuffer[] = [];
 
     private _isEquirectangular = true;
 
-    public constructor(graphicsDevice: GraphicsDevice) {
+    public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
         this._cameraUniformBuffer = this._setupUniformBuffer(Array.from(this._cameraUniform), 'camera');
         this._camerasUniformBuffer = this._setupUniformBuffer(Array.from(this._camerasUniform), 'cameras');
@@ -141,13 +142,13 @@ export class SkyRenderer extends Renderer {
             this._graphicsDevice.bindResource(cmd, this._camerasUniformBuffer, 0);
             this._graphicsDevice.bindResource(cmd, this._paramsUniforms[i], 1);
             this._graphicsDevice.bindResource(cmd, this._envTexture, 2);
-            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
             this._graphicsDevice.drawInstanced(cmd, 240, 1, 0, 0);
             this._graphicsDevice.endRenderPass(cmd);
         }
         this._graphicsDevice.endEvent(cmd);
 
-        mipmapGenerator.run(cmd, this._envrenderingColorTexture);
+        mipmapGenerator.render(cmd, this._envrenderingColorTexture, EN_MIPGENFILTER.LINEAR);
 
         this._filterEnvMap(cmd);
     }
@@ -157,7 +158,7 @@ export class SkyRenderer extends Renderer {
             return;
         }
         this._graphicsDevice.bindPipeline(cmd, this._isEquirectangular ? this._skyCubemapPipeline : this._skyPipeline);
-        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 0);
+        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 0);
         this._graphicsDevice.bindResource(cmd, this._envTexture, 1);
         if (this._isEquirectangular) {
             this._graphicsDevice.bindResource(cmd, this._cameraUniformBuffer, 2);
@@ -198,7 +199,7 @@ export class SkyRenderer extends Renderer {
 
             this._graphicsDevice.bindResource(cmd, filteredEnvmapBuffers[i], 0);
             this._graphicsDevice.bindResource(cmd, this._envrenderingColorTexture, 1);
-            this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 2);
+            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 2);
             this._graphicsDevice.bindUAV(cmd, this._envrenderingColorTextureFiltered, 3, i);
             this._graphicsDevice.dispatch(
                 cmd,
@@ -321,10 +322,20 @@ export class SkyRenderer extends Renderer {
                     blendOpAlpha: EN_BLEND_OP.ADD,
                     blendEnable: false,
                     renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
+                },
+                {
+                    srcBlend: EN_BLEND.SRC_ALPHA,
+                    destBlend: EN_BLEND.INV_SRC_ALPHA,
+                    blendOp: EN_BLEND_OP.ADD,
+                    srcBlendAlpha: EN_BLEND.ONE,
+                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
+                    blendOpAlpha: EN_BLEND_OP.ADD,
+                    blendEnable: false,
+                    renderTargetWriteMask: EN_COLOR_WRITE.DISABLE
                 }
             ],
             alphaToCoverageEnable: false,
-            independentBlendEnable: false,
+            independentBlendEnable: true,
         };
 
         const rs: RasterizerState = {
@@ -425,8 +436,6 @@ export class SkyRenderer extends Renderer {
             });
         }
 
-        {
-            this._filterEnvMapPipeline = await this._graphicsDevice.createComputePipeline('shaders/filter_envmap_cs.wgsl');
-        }
+        this._filterEnvMapPipeline = await this._graphicsDevice.createComputePipeline('shaders/filter_envmap_cs.wgsl');
     }
 }

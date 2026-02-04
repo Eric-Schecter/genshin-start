@@ -1,9 +1,12 @@
-import { EN_BIND_FLAG, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_TEX_TYPE, EN_USAGE, getFormatStride, GraphicsDevice, SubresourceData, TextureDesc } from "@eric-schecter/graphics";
+import {
+    EN_BIND_FLAG, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_TEX_TYPE, EN_USAGE, getFormatStride,
+    GraphicsDevice, SubresourceData, TextureDesc
+} from "@eric-schecter/graphics";
 import Color, { ColorInstance } from "color";
 import { mat3, vec3 } from "gl-matrix";
 
 export class BackGround {
-    public constructor(private _graphicsDevice: GraphicsDevice) { }
+    public constructor(private readonly _graphicsDevice: GraphicsDevice) { }
 
     public create() {
         const width = 1;
@@ -29,8 +32,8 @@ export class BackGround {
             name: 'sky',
         };
 
-        const tb_l = 0.20
-        const b_l = 0.6
+        const tb_l = 0.2;
+        const b_l = 0.6;
 
         const rgba = new Float32Array(width * height * 4);
         for (let y = 0; y < height; y++) {
@@ -69,8 +72,8 @@ export class BackGround {
     }
 
     private inv_rrt_odt_fit(v: number): number {
-        const a = -(Math.sqrt(10.) * Math.sqrt((-187248350. * Math.pow(v, 2)) + 232585567. * v + 241290.) + 21650. * v - 1230.);
-        const b = (98370. * v - 100000.);
+        const a = -(Math.sqrt(10) * Math.sqrt((-187248350 * Math.pow(v, 2)) + 232585567 * v + 241290) + 21650 * v - 1230);
+        const b = (98370 * v - 100000);
         return a / b;
     }
 

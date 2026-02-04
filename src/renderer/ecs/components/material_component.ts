@@ -7,6 +7,12 @@ export type TextureData = {
     width: number,
     height: number,
     name: string,
+    colorSpace: EN_COLOR_SPACE,
+}
+
+export enum EN_COLOR_SPACE {
+    LINEAR,
+    SRGB,
 }
 
 export type MaterialComponent = {
@@ -34,7 +40,8 @@ export const createDefaultTextureData = (): TextureData => {
         data: new Uint8Array(),
         width: 1,
         height: 1,
-        name: ''
+        name: '',
+        colorSpace: EN_COLOR_SPACE.LINEAR,
     }
 }
 

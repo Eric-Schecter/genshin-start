@@ -1,6 +1,6 @@
-export { SceneRenderer } from './scene_renderer';
+export * from './scene_renderer';
 export { BoundingBox } from './bbox';
-export { Renderer } from './renderers';
+export * from './renderers';
 export * from './ecs';
 export * from './controller';
 export * from './geometry';

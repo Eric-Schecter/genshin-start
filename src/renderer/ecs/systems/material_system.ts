@@ -1,7 +1,7 @@
 import { EN_BIND_FLAG, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_TEX_TYPE, EN_USAGE, getFormatStride, GraphicsDevice, SubresourceData, TextureDesc } from "@eric-schecter/graphics";
 import { scene } from "../scene";
 import { query } from "bitecs";
-import { TextureData } from "../components";
+import { EN_COLOR_SPACE, TextureData } from "../components";
 import { floatSize } from "../../constant";
 
 export class MaterialSystem {
@@ -26,7 +26,7 @@ export class MaterialSystem {
                     this._needUpdate = true;
                 }
             })
-            this._createTextureIfNeeded(graphicsDevice, normalTexture, false).then(res => {
+            this._createTextureIfNeeded(graphicsDevice, normalTexture).then(res => {
                 if (normalTexture.data.length === 0) {
                     console.warn('no normal texture');
                 }
@@ -44,7 +44,7 @@ export class MaterialSystem {
                     this._needUpdate = true;
                 }
             })
-            this._createTextureIfNeeded(graphicsDevice, metallicRoughnessTexture, false).then(res => {
+            this._createTextureIfNeeded(graphicsDevice, metallicRoughnessTexture).then(res => {
                 if (metallicRoughnessTexture.data.length === 0) {
                     console.warn('no metalroughness texture');
                 }
@@ -53,7 +53,7 @@ export class MaterialSystem {
                     this._needUpdate = true;
                 }
             })
-            this._createTextureIfNeeded(graphicsDevice, occlusionTexture, false).then(res => {
+            this._createTextureIfNeeded(graphicsDevice, occlusionTexture).then(res => {
                 if (occlusionTexture.data.length === 0) {
                     console.warn('no occlusion texture');
                 }
@@ -89,12 +89,12 @@ export class MaterialSystem {
         return 0;
     }
 
-    private async _createTextureIfNeeded(graphicsDevice: GraphicsDevice, textureData: TextureData, isSRGB = true) {
+    private async _createTextureIfNeeded(graphicsDevice: GraphicsDevice, textureData: TextureData) {
         if (textureData.texture || !textureData.data.length) {
             return;
         }
 
-        const { width, height, data, name } = textureData;
+        const { width, height, data, name, colorSpace } = textureData;
 
         const desc: TextureDesc = {
             type: EN_TEX_TYPE.TEXTURE_2D,
@@ -103,7 +103,7 @@ export class MaterialSystem {
             depth: 1,
             arraySize: 1,
             mipLevels: 1,
-            format: isSRGB ? EN_FORMAT.R8G8B8A8_UNORM_SRGB : EN_FORMAT.R8G8B8A8_UNORM,
+            format: colorSpace === EN_COLOR_SPACE.SRGB ? EN_FORMAT.R8G8B8A8_UNORM_SRGB : EN_FORMAT.R8G8B8A8_UNORM,
             sampleCount: 1,
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,

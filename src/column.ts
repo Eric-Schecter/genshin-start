@@ -5,13 +5,13 @@ import { query } from "bitecs";
 import { zLength } from "./constant";
 
 export class Column {
-    private _prefab = new Map<string, number>(); // not real prefab
+    private readonly _prefab = new Map<string, number>(); // not real prefab
 
-    private _markedObj = new Set<string>();
+    private readonly _markedObj = new Set<string>();
 
     public onload() {
-        for (let i = 0; i < MashList.length; i++) {
-            const { Object } = MashList[i];
+        for (const element of MashList) {
+            const { Object } = element;
             const entity = getEntityByTag(Object);
             if (!this._prefab.has(Object)) {
                 this._prefab.set(Object, entity);
@@ -29,8 +29,8 @@ export class Column {
                 }
             }
         }
-        for (let i = 0; i < MashList.length; i++) {
-            const { Object, Scale, Location, Rotation } = MashList[i];
+        for (const element of MashList) {
+            const { Object, Scale, Location, Rotation } = element;
             const entity = this._prefab.get(Object);
             if (!entity || entity === invalid_id) {
                 console.error(`can not find model:${Object}`);

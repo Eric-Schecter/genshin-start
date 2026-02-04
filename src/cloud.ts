@@ -1,22 +1,28 @@
 import { vec3 } from "gl-matrix";
 import { CloudList } from "./datas";
-import { BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer } from "@eric-schecter/graphics";
-import { clone, scene, Renderer, imageLoader, Plane, getPrimaryCamera, invalid_id, TransformComponent } from "./renderer";
+import {
+    BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE,
+    EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY,
+    EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
+} from "@eric-schecter/graphics";
+import {
+    clone, scene, Renderer, imageLoader, Plane, getPrimaryCamera, invalid_id, TransformComponent, EN_DATA_TEXTURE_TYPE,
+    EN_SAMPLER_TYPE, ResourceManager
+} from "./renderer";
 import { zLength } from "./constant";
-import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE } from "./renderer/renderers";
 
 export class Cloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
 
-    private _instanceStorageBuffer: WGPUBuffer;
+    private readonly _instanceStorageBuffer: WGPUBuffer;
 
-    private _cloudEntities: number[] = []; // mesh entity -> object entities
+    private readonly _cloudEntities: number[] = []; // mesh entity -> object entities
 
-    private _posList: TransformComponent[] = [];
+    private readonly _posList: TransformComponent[] = [];
 
     private _meshEntity = invalid_id;
 
-    public constructor(graphicsDevice: GraphicsDevice) {
+    public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
         const maxCount = CloudList.length;
@@ -111,8 +117,6 @@ export class Cloud extends Renderer {
             return;
         }
 
-        this._graphicsDevice.bindPipeline(cmd, this._cloudPipeline);
-
         const { meshes, materials, cameras } = scene.components;
 
         const primaryCameraEntity = getPrimaryCamera();
@@ -120,8 +124,8 @@ export class Cloud extends Renderer {
             console.warn('no primary camera component found');
             return;
         }
-        const { viewMatrixBuffer, projMatrixBuffer, cameraPosBuffer } = cameras[primaryCameraEntity];
-        if (!viewMatrixBuffer || !projMatrixBuffer || !cameraPosBuffer) {
+        const { viewMatrixBuffer, projMatrixBuffer } = cameras[primaryCameraEntity];
+        if (!viewMatrixBuffer || !projMatrixBuffer) {
             return;
         }
 
@@ -135,13 +139,14 @@ export class Cloud extends Renderer {
         const { diffuseTexture } = materialComponent;
         const { vertexBuffers, indexBuffer } = meshComponent;
 
+        this._graphicsDevice.bindPipeline(cmd, this._cloudPipeline);
         this._graphicsDevice.bindVertexBuffers(cmd, vertexBuffers, 0);
         this._graphicsDevice.bindIndexBuffer(cmd, indexBuffer!, EN_INDEX_BUFFER_FORMAT.UINT32, 0);
         this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
         this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
         this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 2);
-        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
-        this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
+        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+        this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
         this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, this._posList.length);
     }
 
@@ -228,10 +233,20 @@ export class Cloud extends Renderer {
                     blendOpAlpha: EN_BLEND_OP.ADD,
                     blendEnable: true,
                     renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
+                },
+                {
+                    srcBlend: EN_BLEND.SRC_ALPHA,
+                    destBlend: EN_BLEND.INV_SRC_ALPHA,
+                    blendOp: EN_BLEND_OP.ADD,
+                    srcBlendAlpha: EN_BLEND.ONE,
+                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
+                    blendOpAlpha: EN_BLEND_OP.ADD,
+                    blendEnable: false,
+                    renderTargetWriteMask: EN_COLOR_WRITE.DISABLE
                 }
             ],
             alphaToCoverageEnable: false,
-            independentBlendEnable: false,
+            independentBlendEnable: true,
         };
 
         this._cloudPipeline = this._graphicsDevice.createPipeline({

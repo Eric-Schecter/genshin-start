@@ -1,19 +1,28 @@
 import { EN_RESOURCE_MISC_FLAG, EN_TEX_TYPE, GraphicsDevice, WGPUBuffer, WGPUTexture, ComputePipeline, RenderCommandBuffer } from "@eric-schecter/graphics";
-import { EN_SAMPLER_TYPE, Renderer } from "./renderer";
+import { Renderer } from "./renderer";
 import { GENERATEMIPCHAIN_2D_BLOCK_SIZE } from "./constant";
+import { Gaussian } from "../pass";
+import { EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
+
+export enum EN_MIPGENFILTER {
+    POINT,
+    LINEAR,
+    GAUSSIAN,
+}
 
 export class MipmapGenerator extends Renderer {
-    private _pipeline: ComputePipeline;
+    private _pipelineCube: ComputePipeline;
 
-    public constructor(graphicsDevice: GraphicsDevice) {
+    private _pipeline2D: ComputePipeline;
+
+    public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager, private readonly _gaussian: Gaussian) {
         super(graphicsDevice);
         this._createPipelines();
     }
 
     public update(dt: number) { }
-    public render(cmd: RenderCommandBuffer) { };
 
-    public run(cmd: RenderCommandBuffer, texture: WGPUTexture) {
+    public render(cmd: RenderCommandBuffer, texture: WGPUTexture, filter: EN_MIPGENFILTER, tempTex?: WGPUTexture, linearDepth?: WGPUTexture) {
         const { desc: { type, arraySize, width, height, mipLevels, miscFlags } } = texture;
         let w = width;
         let h = height;
@@ -23,61 +32,132 @@ export class MipmapGenerator extends Renderer {
                     // cube array
                     throw new Error('not supported');
                 } else {
-                    if (!this._pipeline) {
-                        throw new Error('no pipeline');
+                    if (!this._pipelineCube) {
+                        return;
                     }
 
-                    const mipmapBuffers: WGPUBuffer[] = [];
-                    for (let i = 0; i < mipLevels - 1; i++) {
-                        mipmapBuffers.push(this._setupUniformBuffer([width, height, 1 / width, 1 / height], 'mipmap output'));
+                    switch (filter) {
+                        case EN_MIPGENFILTER.POINT: {
+                            throw new Error('not supported');
+                            break;
+                        }
+                        case EN_MIPGENFILTER.LINEAR: {
+                            const mipmapBuffers: WGPUBuffer[] = [];
+                            for (let i = 0; i < mipLevels - 1; i++) {
+                                mipmapBuffers.push(this._setupUniformBuffer([width, height, 1 / width, 1 / height], 'mipmap output'));
+                            }
+
+                            this._graphicsDevice.beginEvent(cmd, 'generate mipmap cube - linear');
+                            this._graphicsDevice.beginComputePass(cmd);
+                            this._graphicsDevice.bindComputePipeline(cmd, this._pipelineCube);
+                            for (let i = 0; i < mipLevels - 1; i++) {
+                                w = Math.max(1, w / 2);
+                                h = Math.max(1, h / 2);
+
+                                mipmapBuffers[i].update(new Float32Array([w, h, 1 / w, 1 / h]));
+
+                                this._graphicsDevice.bindResource(cmd, mipmapBuffers[i], 0);
+                                this._graphicsDevice.bindResource(cmd, texture, 1, i);
+                                this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 2);
+                                this._graphicsDevice.bindUAV(cmd, texture, 3, i + 1);
+                                this._graphicsDevice.dispatch(cmd,
+                                    Math.max(1, Math.floor((w + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE)),
+                                    Math.max(1, Math.floor((h + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE)),
+                                    6);
+                            }
+                            this._graphicsDevice.endComputePass(cmd);
+                            this._graphicsDevice.endEvent(cmd);
+                            break;
+                        }
+                        case EN_MIPGENFILTER.GAUSSIAN: {
+                            throw new Error('not supported');
+                            break;
+                        }
+                        default: {
+                            throw new Error('not supported');
+                            break;
+                        }
                     }
-
-                    this._graphicsDevice.beginEvent(cmd, 'generate mipmap cube - linear');
-                    this._graphicsDevice.beginComputePass(cmd);
-                    this._graphicsDevice.bindComputePipeline(cmd, this._pipeline);
-                    for (let i = 0; i < mipLevels - 1; i++) {
-                        w = Math.max(1, w / 2);
-                        h = Math.max(1, h / 2);
-
-                        mipmapBuffers[i].update(new Float32Array([w, h, 1 / w, 1 / h]));
-
-                        this._graphicsDevice.bindResource(cmd, mipmapBuffers[i], 0);
-                        this._graphicsDevice.bindResource(cmd, texture, 1, i);
-                        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 2);
-                        this._graphicsDevice.bindUAV(cmd, texture, 3, i + 1);
-                        this._graphicsDevice.dispatch(cmd,
-                            Math.max(1, Math.floor((w + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE)),
-                            Math.max(1, Math.floor((h + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE)),
-                            6);
-                    }
-                    this._graphicsDevice.endComputePass(cmd);
-                    this._graphicsDevice.endEvent(cmd);
                 }
             } else {
-                throw new Error('not supported');
-                // const mipmapBuffers: WGPUBuffer[] = [];
-                // for (let i = 0; i < mipLevels - 1; i++) {
-                //     mipmapBuffers.push(this._setupUniformBuffer([width, height, 1, 0, 1 / width, 1 / height, 1], 'mipmap output'));
-                // }
+                if (!this._pipeline2D) {
+                    return;
+                }
+                switch (filter) {
+                    case EN_MIPGENFILTER.POINT: {
+                        throw new Error('not supported');
+                        break;
+                    }
+                    case EN_MIPGENFILTER.LINEAR: {
+                        const mipmapBuffers: WGPUBuffer[] = [];
+                        for (let i = 0; i < mipLevels - 1; i++) {
+                            mipmapBuffers.push(this._setupUniformBuffer([width, height, 1 / width, 1 / height], 'mipmap output'));
+                        }
 
-                // this._graphicsDevice.beginEvent(cmd, 'generate mipmap 2d - linear');
-                // this._graphicsDevice.bindComputePipeline(cmd, this._pipeline);
-                // for (let i = 0; i < mipLevels - 1; i++) {
-                //     w = Math.max(1, width / 2);
-                //     h = Math.max(1, height / 2);
+                        this._graphicsDevice.beginEvent(cmd, 'generate mipmap 2d - linear');
+                        this._graphicsDevice.beginComputePass(cmd);
+                        this._graphicsDevice.bindComputePipeline(cmd, this._pipeline2D);
+                        for (let i = 0; i < mipLevels - 1; i++) {
+                            w = Math.max(1, w / 2);
+                            h = Math.max(1, h / 2);
 
-                //     mipmapBuffers[i].update(new Float32Array([w, h, 1, 0, 1 / w, 1 / h, 1]));
+                            mipmapBuffers[i].update(new Float32Array([w, h, 1 / w, 1 / h]));
 
-                //     this._graphicsDevice.bindResource(cmd, mipmapBuffers[i], 0);
-                //     this._graphicsDevice.bindResource(cmd, texture, 1, i);
-                //     this._graphicsDevice.bindSampler(cmd, this._sampler, 2);
-                //     this._graphicsDevice.bindResource(cmd, texture, 3, i + 1);
-                //     this._graphicsDevice.dispatch(cmd,
-                //         Math.max(1, (w + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE),
-                //         Math.max(1, (h + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE),
-                //         1)
-                // }
-                // this._graphicsDevice.endEvent(cmd);
+                            this._graphicsDevice.bindResource(cmd, mipmapBuffers[i], 0);
+                            this._graphicsDevice.bindResource(cmd, texture, 1, i);
+                            this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 2);
+                            this._graphicsDevice.bindUAV(cmd, texture, 3, i + 1);
+                            this._graphicsDevice.dispatch(cmd,
+                                Math.max(1, Math.floor((w + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE)),
+                                Math.max(1, Math.floor((h + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE)),
+                                1);
+                        }
+                        this._graphicsDevice.endComputePass(cmd);
+                        this._graphicsDevice.endEvent(cmd);
+                        break;
+                    }
+                    case EN_MIPGENFILTER.GAUSSIAN: {
+                        if (!tempTex || !linearDepth) {
+                            console.error('tempTex and linearDepth are required for gaussian filter');
+                            return;
+                        }
+                        this._graphicsDevice.beginEvent(cmd, "GenerateMipChain 2D - GaussianFilter");
+                        const count = tempTex.desc.mipLevels;
+                        for (let i = 0; i < count - 1; ++i) {
+                            this._gaussian.render(cmd, texture, tempTex, texture, linearDepth, i, i + 1);
+                        }
+                        this._graphicsDevice.endEvent(cmd);
+
+                        // const mipmapBuffers: WGPUBuffer[] = [];
+                        // for (let i = 0; i < mipLevels - 1; i++) {
+                        //     mipmapBuffers.push(this._setupUniformBuffer([width, height, 1, 0, 1 / width, 1 / height, 1], 'mipmap output'));
+                        // }
+
+                        // this._graphicsDevice.beginEvent(cmd, 'generate mipmap 2d - linear');
+                        // this._graphicsDevice.bindComputePipeline(cmd, this._pipeline);
+                        // for (let i = 0; i < mipLevels - 1; i++) {
+                        //     w = Math.max(1, width / 2);
+                        //     h = Math.max(1, height / 2);
+
+                        //     mipmapBuffers[i].update(new Float32Array([w, h, 1, 0, 1 / w, 1 / h, 1]));
+
+                        //     this._graphicsDevice.bindResource(cmd, mipmapBuffers[i], 0);
+                        //     this._graphicsDevice.bindResource(cmd, texture, 1, i);
+                        //     this._graphicsDevice.bindSampler(cmd, this._sampler, 2);
+                        //     this._graphicsDevice.bindResource(cmd, texture, 3, i + 1);
+                        //     this._graphicsDevice.dispatch(cmd,
+                        //         Math.max(1, (w + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE),
+                        //         Math.max(1, (h + GENERATEMIPCHAIN_2D_BLOCK_SIZE - 1) / GENERATEMIPCHAIN_2D_BLOCK_SIZE),
+                        //         1)
+                        // }
+                        // this._graphicsDevice.endEvent(cmd);
+                        break;
+                    }
+                    default: {
+                        throw new Error('not supported');
+                        break;
+                    }
+                }
             }
         } else if (type === EN_TEX_TYPE.TEXTURE_3D) {
             throw new Error('not supported');
@@ -87,6 +167,9 @@ export class MipmapGenerator extends Renderer {
     }
 
     private async _createPipelines() {
-        this._pipeline = await this._graphicsDevice.createComputePipeline('shaders/mipmap/generate_mipchain_cube_float4_cs.wgsl');
+        [this._pipelineCube, this._pipeline2D] = await Promise.all([
+            this._graphicsDevice.createComputePipeline('shaders/mipmap/generate_mipchain_cube_float4_cs.wgsl'),
+            this._graphicsDevice.createComputePipeline('shaders/mipmap/generate_mipchain_2d_float4_cs.wgsl'),
+        ]);
     }
 }

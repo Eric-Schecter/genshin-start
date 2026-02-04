@@ -19,7 +19,7 @@ export type CameraComponent = {
 
     viewMatrixBuffer?: WGPUBuffer;
     projMatrixBuffer?: WGPUBuffer;
-    cameraPosBuffer?: WGPUBuffer;
+    cameraBuffer?: WGPUBuffer;
 
     isPrimary: boolean;
 

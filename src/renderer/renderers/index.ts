@@ -6,3 +6,4 @@ export * from './renderer';
 export * from './sky_renderer';
 export * from './shadow_renderer';
 export * from './constant';
+export * from './resource_manager';

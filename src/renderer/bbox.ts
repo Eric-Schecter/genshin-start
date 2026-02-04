@@ -1,8 +1,8 @@
 import { vec3, mat4 } from 'gl-matrix';
 
 export class BoundingBox {
-    private _min: vec3;
-    private _max: vec3;
+    private readonly _min: vec3;
+    private readonly _max: vec3;
 
     public constructor(min = vec3.fromValues(Infinity, Infinity, Infinity), max = vec3.fromValues(-Infinity, -Infinity, -Infinity)) {
         this._min = vec3.clone(min);
@@ -30,8 +30,8 @@ export class BoundingBox {
     }
 
     public expandByPositions(positions: vec3[]) {
-        for (let i = 0; i < positions.length; i++) {
-            this.expandByPoint(positions[i]);
+        for (const element of positions) {
+            this.expandByPoint(element);
         }
         return this;
     }

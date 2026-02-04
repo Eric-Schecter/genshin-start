@@ -1,9 +1,13 @@
 import { quat, vec3 } from "gl-matrix";
 import { PolarLightList } from "./datas";
-import { BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer } from "@eric-schecter/graphics";
+import {
+    BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK,
+    EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE,
+    GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
+} from "@eric-schecter/graphics";
 import { clone, scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, TransformComponent, getEntityByTag, createDefaultMaterialComponent } from "./renderer";
 import { zLength } from "./constant";
-import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE } from "./renderer/renderers";
+import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager } from "./renderer/renderers";
 import { addComponent, addEntity, query } from "bitecs";
 import { floatSize } from "./renderer/constant";
 
@@ -12,21 +16,19 @@ export class PolarLight extends Renderer {
 
     private _pipeline: GraphicsPipeline;
 
-    private _instanceStorageBuffer: WGPUBuffer;
+    private readonly _instanceStorageBuffer: WGPUBuffer;
 
-    private _paramsBuffer: WGPUBuffer;
+    private readonly _paramsBuffer: WGPUBuffer;
 
-    private _polarLightEntities: number[] = []; // mesh entity -> object entities
+    private readonly _polarLightEntities: number[] = []; // mesh entity -> object entities
 
-    private _posList: TransformComponent[] = [];
+    private readonly _posList: TransformComponent[] = [];
 
     private _meshEntity = invalid_id;
 
-    private _time = 0;
-
     private _firstTime = true;
 
-    public constructor(graphicsDevice: GraphicsDevice) {
+    public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
         const maxCount = PolarLightList.length;
@@ -113,7 +115,7 @@ export class PolarLight extends Renderer {
         }
     }
 
-    public update(dt: number) {
+    public update(dt: number, et: number) {
         if (this._posList.length === 0) {
             return;
         }
@@ -140,8 +142,7 @@ export class PolarLight extends Renderer {
             }
         }
 
-        this._time += dt;
-        this._paramsBuffer.update(new Float32Array([this._time]));
+        this._paramsBuffer.update(new Float32Array([et]));
     }
 
     private _updateModelMatrix() {
@@ -174,8 +175,8 @@ export class PolarLight extends Renderer {
             console.warn('no primary camera component found');
             return;
         }
-        const { viewMatrixBuffer, projMatrixBuffer, cameraPosBuffer } = cameras[primaryCameraEntity];
-        if (!viewMatrixBuffer || !projMatrixBuffer || !cameraPosBuffer) {
+        const { viewMatrixBuffer, projMatrixBuffer, cameraBuffer } = cameras[primaryCameraEntity];
+        if (!viewMatrixBuffer || !projMatrixBuffer || !cameraBuffer) {
             return;
         }
 
@@ -195,9 +196,9 @@ export class PolarLight extends Renderer {
         this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
         this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
         this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 2);
-        this._graphicsDevice.bindSampler(cmd, this._samplers.get(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
-        this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._dataTextures.get(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
-        this._graphicsDevice.bindResource(cmd, cameraPosBuffer, 5);
+        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+        this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
+        this._graphicsDevice.bindResource(cmd, cameraBuffer, 5);
         this._graphicsDevice.bindResource(cmd, this._paramsBuffer, 6);
         this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, this._posList.length);
     }
@@ -284,10 +285,20 @@ export class PolarLight extends Renderer {
                     blendOpAlpha: EN_BLEND_OP.ADD,
                     blendEnable: true,
                     renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
+                },
+                {
+                    srcBlend: EN_BLEND.SRC_ALPHA,
+                    destBlend: EN_BLEND.INV_SRC_ALPHA,
+                    blendOp: EN_BLEND_OP.ADD,
+                    srcBlendAlpha: EN_BLEND.ONE,
+                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
+                    blendOpAlpha: EN_BLEND_OP.ADD,
+                    blendEnable: false,
+                    renderTargetWriteMask: EN_COLOR_WRITE.DISABLE
                 }
             ],
             alphaToCoverageEnable: false,
-            independentBlendEnable: false,
+            independentBlendEnable: true,
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({

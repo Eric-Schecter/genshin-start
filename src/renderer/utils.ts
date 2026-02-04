@@ -1,6 +1,6 @@
 import { EN_BIND_FLAG, EN_RESOURCE_MISC_FLAG, EN_USAGE, GPUBufferDesc, GraphicsDevice } from "@eric-schecter/graphics";
 import { vec3, mat4, vec4, vec2, quat } from "gl-matrix";
-import { createDefaultTextureData } from "./ecs";
+import { createDefaultTextureData, EN_COLOR_SPACE } from "./ecs";
 
 export function setupUniformBuffer(graphicsDevice: GraphicsDevice, data: number[], name = '') {
     const color = new Float32Array(data);
@@ -16,7 +16,7 @@ export function setupUniformBuffer(graphicsDevice: GraphicsDevice, data: number[
     return graphicsDevice.createBuffer(desc, color);
 }
 
-export function quatToMat4(quat: quat){
+export function quatToMat4(quat: quat) {
     const mat = mat4.create();
     mat4.fromQuat(mat, quat);
     return mat;
@@ -166,7 +166,7 @@ export function vec4ArrayToFloat32Array(tangents: vec4[]): Float32Array<ArrayBuf
     return arr;
 }
 
-export function createTexture(imageData?: Uint8Array | null, size?: [number, number] | null, name?: string) {
+export function createTexture(imageData?: Uint8Array | null, size?: [number, number] | null, name?: string, colorSpace = EN_COLOR_SPACE.LINEAR) {
     const res = createDefaultTextureData();
     if (!imageData) {
         return res;
@@ -180,6 +180,7 @@ export function createTexture(imageData?: Uint8Array | null, size?: [number, num
     res.height = height;
     res.data = imageData;
     res.name = name || '';
+    res.colorSpace = colorSpace;
 
     return res;
 }

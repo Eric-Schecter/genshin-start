@@ -9,13 +9,12 @@ import { scene, Renderer, Plane, getPrimaryCamera, invalid_id } from "./renderer
 export class Fog extends Renderer {
     private _pipeline: GraphicsPipeline;
 
-    private _instanceStorageBuffer: WGPUBuffer;
-    private _paramsBuffer: WGPUBuffer;
-    private _planeEntity = invalid_id;
-    private _meshEntity = invalid_id;
-    private _time = 0;
+    private readonly _instanceStorageBuffer: WGPUBuffer;
+    private readonly _paramsBuffer: WGPUBuffer;
+    private readonly _planeEntity: number = invalid_id;
+    private readonly _meshEntity: number = invalid_id;
 
-    private _interval = 80;
+    private readonly _interval = 80;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -57,7 +56,7 @@ export class Fog extends Renderer {
         this._planeEntity = planeEntity;
     }
 
-    public update(dt: number) {
+    public update(dt: number, et:number) {
         if (this._planeEntity === invalid_id) {
             return;
         }
@@ -73,13 +72,13 @@ export class Fog extends Renderer {
         const transformComponent = transforms[this._planeEntity];
         const { worldMatrix, translation } = transformComponent;
         translation[2] = cameraCenter - 400;
+
         transformComponent.dirty = true;
 
         this._instanceStorageBuffer.update(new Float32Array(worldMatrix));
         // }
 
-        this._time += dt;
-        this._paramsBuffer.update(new Float32Array([this._time]));
+        this._paramsBuffer.update(new Float32Array([et]));
     }
 
     public render(cmd: RenderCommandBuffer) {
@@ -196,10 +195,20 @@ export class Fog extends Renderer {
                     blendOpAlpha: EN_BLEND_OP.ADD,
                     blendEnable: true,
                     renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
+                },
+                {
+                    srcBlend: EN_BLEND.SRC_ALPHA,
+                    destBlend: EN_BLEND.INV_SRC_ALPHA,
+                    blendOp: EN_BLEND_OP.ADD,
+                    srcBlendAlpha: EN_BLEND.ONE,
+                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
+                    blendOpAlpha: EN_BLEND_OP.ADD,
+                    blendEnable: false,
+                    renderTargetWriteMask: EN_COLOR_WRITE.DISABLE
                 }
             ],
             alphaToCoverageEnable: false,
-            independentBlendEnable: false,
+            independentBlendEnable: true,
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({
