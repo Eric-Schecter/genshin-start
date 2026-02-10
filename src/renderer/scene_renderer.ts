@@ -24,6 +24,7 @@ import { floatSize, maxInstanceCount } from "./constant";
 export enum EN_ENABLE_FLAG {
     NONE = 0,
     BLOOM = 1,
+    MULTI_SAMPLE = 1 << 1,
 }
 
 export class SceneRenderer extends Renderer {
@@ -32,13 +33,13 @@ export class SceneRenderer extends Renderer {
 
     protected readonly _resourceManager: ResourceManager;
 
-    private _colorTexture: WGPUTexture;
+    private _colorTexture1: WGPUTexture;
+    private _resolvedTexture: WGPUTexture;
+    private _colorTexture2: WGPUTexture;
 
     private _depthStencilTexture: WGPUTexture;
     private _linearDepthTexture: WGPUTexture;
 
-    private _resolvedTexture1: WGPUTexture;
-    private _resolvedTexture2: WGPUTexture;
     private _resolvedTextureDepth: WGPUTexture;
 
     private readonly _textures: WGPUTexture[] = [];
@@ -61,7 +62,7 @@ export class SceneRenderer extends Renderer {
     private readonly _materialSystem: MaterialSystem;
 
     private _time: number;
-    private _startTime: number;
+    private readonly _startTime: number;
 
     protected _modelLoader: ModelLoader;
     protected _controller: Controller;
@@ -76,6 +77,8 @@ export class SceneRenderer extends Renderer {
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
+
+        this.enable(EN_ENABLE_FLAG.MULTI_SAMPLE);
 
         this._resourceManager = new ResourceManager(graphicsDevice);
 
@@ -94,17 +97,17 @@ export class SceneRenderer extends Renderer {
         this._meshRenderer = new MeshRenderer(graphicsDevice, this._resourceManager);
         this._shadowRenderer = new ShadowRenderer(graphicsDevice);
 
-        this._createTextures();
-
         this._tonemap = new Tonemap(graphicsDevice, this._resourceManager);
         this._bloom = new Bloom(graphicsDevice, this._resourceManager);
-
-        this._setupDefaultCamera();
 
         this._time = performance.now();
         this._startTime = this._time;
 
         this._renderers.push(this._skyRenderer);
+
+        this._createTextures();
+
+        this._setupDefaultCamera();
 
         this._instanceStorageBuffer = graphicsDevice.createBuffer({
             size: maxInstanceCount * 64 * floatSize,
@@ -189,7 +192,8 @@ export class SceneRenderer extends Renderer {
 
             this._renderScene(cmd);
 
-            const res = this._postprocess(cmd);
+            const colorTexture1 = this.isEnable(EN_ENABLE_FLAG.MULTI_SAMPLE) ? this._resolvedTexture : this._colorTexture1;
+            const res = this._postprocess(cmd, colorTexture1, this._colorTexture2);
 
             this._present(cmd, res);
 
@@ -264,11 +268,19 @@ export class SceneRenderer extends Renderer {
     private _renderScene(cmd: RenderCommandBuffer) {
         this._graphicsDevice.beginEvent(cmd, 'render mesh');
 
-        this._graphicsDevice.beginRenderPass(cmd,
-            [RenderPassImage.renderTarget({ resource: this._colorTexture, resolveTarget: this._resolvedTexture1, load_op: EN_LOAD_OP.CLEAR }),
-            RenderPassImage.renderTarget({ resource: this._linearDepthTexture, resolveTarget: this._resolvedTextureDepth, load_op: EN_LOAD_OP.CLEAR }),
-            RenderPassImage.depthStencil({ resource: this._depthStencilTexture, load_op: EN_LOAD_OP.CLEAR })]
-        );
+        if (this.isEnable(EN_ENABLE_FLAG.MULTI_SAMPLE)) {
+            this._graphicsDevice.beginRenderPass(cmd,
+                [RenderPassImage.renderTarget({ resource: this._colorTexture1, resolveTarget: this._resolvedTexture, load_op: EN_LOAD_OP.CLEAR }),
+                RenderPassImage.renderTarget({ resource: this._linearDepthTexture, resolveTarget: this._resolvedTextureDepth, load_op: EN_LOAD_OP.CLEAR }),
+                RenderPassImage.depthStencil({ resource: this._depthStencilTexture, load_op: EN_LOAD_OP.CLEAR })]
+            );
+        } else {
+            this._graphicsDevice.beginRenderPass(cmd,
+                [RenderPassImage.renderTarget({ resource: this._colorTexture1, load_op: EN_LOAD_OP.CLEAR }),
+                RenderPassImage.renderTarget({ resource: this._linearDepthTexture, load_op: EN_LOAD_OP.CLEAR }),
+                RenderPassImage.depthStencil({ resource: this._depthStencilTexture, load_op: EN_LOAD_OP.CLEAR })]
+            );
+        }
 
         this._meshRenderer.render(cmd, this._renderBatch, this._instanceStorageBuffer);
         this._renderers.forEach(renderer => renderer.render(cmd));
@@ -287,25 +299,24 @@ export class SceneRenderer extends Renderer {
         this._graphicsDevice.endEvent(cmd);
     }
 
-    private _postprocess(cmd: RenderCommandBuffer) {
+    private _postprocess(cmd: RenderCommandBuffer, tex1: WGPUTexture, tex2: WGPUTexture) {
+        return tex1;
+        const linearDepthTexture = this.isEnable(EN_ENABLE_FLAG.MULTI_SAMPLE) ? this._resolvedTextureDepth : this._linearDepthTexture;
+
         if (this.isEnable(EN_ENABLE_FLAG.BLOOM)) {
-            this._bloom.render(cmd, this._resolvedTexture1, this._resolvedTextureDepth, this._mipmapGenerator);
+            this._bloom.render(cmd, tex1, linearDepthTexture, this._mipmapGenerator);
         }
 
         this._tonemap.render(
             cmd,
-            this._resolvedTexture1,
-            this._resolvedTexture2,
+            tex1,
+            tex2,
             this._bloom.exposure,
             this.isEnable(EN_ENABLE_FLAG.BLOOM) ? this._bloom.res : undefined);
 
-        this._swap();
+        [tex1, tex2] = [tex2, tex1];
 
-        return this._resolvedTexture1;
-    }
-
-    private _swap() {
-        [this._resolvedTexture2, this._resolvedTexture1] = [this._resolvedTexture1, this._resolvedTexture2];
+        return tex1;
     }
 
     private _setupDefaultCamera() {
@@ -329,11 +340,17 @@ export class SceneRenderer extends Renderer {
 
     private _createTextures() {
         const { width, height } = this._graphicsDevice.canvas;
-        const sampleCount = 4;
+
+        const sampleCount = this.isEnable(EN_ENABLE_FLAG.MULTI_SAMPLE) ? 4 : 1;
 
         const colorFormat = EN_FORMAT.R16G16B16A16_FLOAT;
 
-        this._colorTexture = this._graphicsDevice.createTexture({
+        let bindFlags = EN_BIND_FLAG.RENDER_TARGET | EN_BIND_FLAG.SHADER_RESOURCE;
+        if (!this.isEnable(EN_ENABLE_FLAG.MULTI_SAMPLE)) {
+            bindFlags |= EN_BIND_FLAG.UNORDERED_ACCESS;
+        }
+
+        this._colorTexture1 = this._graphicsDevice.createTexture({
             type: EN_TEX_TYPE.TEXTURE_2D,
             width,
             height,
@@ -343,12 +360,42 @@ export class SceneRenderer extends Renderer {
             usage: EN_USAGE.DEFAULT,
             format: colorFormat,
             sampleCount,
-            bindFlags: EN_BIND_FLAG.RENDER_TARGET,
+            bindFlags,
             miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
             clear: { color: vec4.fromValues(0.2, 0.2, 0.2, 1) },
             layout: EN_RESOURCE_STATE.RENDERTARGET,
             name: 'color render target'
         });
+
+        if (this.isEnable(EN_ENABLE_FLAG.MULTI_SAMPLE)) {
+            const desc = {
+                type: EN_TEX_TYPE.TEXTURE_2D,
+                width,
+                height,
+                depth: 1,
+                arraySize: 1,
+                mipLevels: 1,
+                usage: EN_USAGE.DEFAULT,
+                format: colorFormat,
+                sampleCount: 1,
+                bindFlags: EN_BIND_FLAG.RENDER_TARGET | EN_BIND_FLAG.SHADER_RESOURCE | EN_BIND_FLAG.UNORDERED_ACCESS,
+                miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
+                clear: { color: vec4.fromValues(0.2, 0.2, 0.2, 1) },
+                layout: EN_RESOURCE_STATE.RENDERTARGET,
+                name: 'color render target resolved'
+            };
+
+            this._resolvedTexture = this._graphicsDevice.createTexture(desc);
+            this._colorTexture2 = this._graphicsDevice.createTexture(desc);
+            this._resolvedTextureDepth = this._graphicsDevice.createTexture({ ...desc, format: colorFormat, name: 'linear depth render target resolved' });
+
+            this._textures.push(
+                this._resolvedTexture,
+                this._resolvedTextureDepth,
+            );
+        } else {
+            this._colorTexture2 = this._graphicsDevice.createTexture(this._colorTexture1.desc);
+        }
 
         this._linearDepthTexture = this._graphicsDevice.createTexture({
             type: EN_TEX_TYPE.TEXTURE_2D,
@@ -384,35 +431,11 @@ export class SceneRenderer extends Renderer {
             name: 'depth stencil render target'
         });
 
-        {
-            const desc = {
-                type: EN_TEX_TYPE.TEXTURE_2D,
-                width,
-                height,
-                depth: 1,
-                arraySize: 1,
-                mipLevels: 1,
-                usage: EN_USAGE.DEFAULT,
-                format: colorFormat,
-                sampleCount: 1,
-                bindFlags: EN_BIND_FLAG.RENDER_TARGET | EN_BIND_FLAG.SHADER_RESOURCE | EN_BIND_FLAG.UNORDERED_ACCESS,
-                miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-                clear: { color: vec4.fromValues(0.2, 0.2, 0.2, 1) },
-                layout: EN_RESOURCE_STATE.RENDERTARGET,
-                name: 'color render target resolved'
-            };
-            this._resolvedTexture1 = this._graphicsDevice.createTexture(desc);
-            this._resolvedTexture2 = this._graphicsDevice.createTexture(desc);
-            this._resolvedTextureDepth = this._graphicsDevice.createTexture({ ...desc, format: colorFormat, name: 'linear depth render target resolved' });
-        };
-
         this._textures.push(
-            this._colorTexture,
+            this._colorTexture1,
+            this._colorTexture2,
             this._linearDepthTexture,
             this._depthStencilTexture,
-            this._resolvedTexture1,
-            this._resolvedTexture2,
-            this._resolvedTextureDepth,
         );
     }
 }

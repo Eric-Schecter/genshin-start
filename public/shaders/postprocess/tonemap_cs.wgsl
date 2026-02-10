@@ -1,3 +1,5 @@
+override SRGB_CONVERT: bool = false;
+
 const POSTPROCESS_BLOCKSIZE: u32 = 8u;
 
 struct Params
@@ -58,23 +60,24 @@ fn ApplySRGBCurve_Fast_Mix(x: vec3<f32>) -> vec3<f32> {
 fn main(@builtin(global_invocation_id) DTid: vec3<u32>) {
     let uv = (vec2<f32>(DTid.xy) + vec2(0.5, 0.5)) * params.outputResolution_rcp;
 
-    var hdr = textureSampleLevel(inputTexture, sampler_linear_clamp, uv, 0).rgb;
+    var color = textureSampleLevel(inputTexture, sampler_linear_clamp, uv, 0.).rgb;
 
     // bloom
-    let exposure = params.bloom.x;
-    hdr *= exposure;
+    // let exposure = params.bloom.x;
+    // color *= exposure;
+    color /= 0.6;
 
     var bloom = textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 1.5f).rgb;
     bloom += textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 3.5f).rgb;
     bloom += textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 4.5f).rgb;
     bloom /= 3.0f;
-    hdr += bloom;
-
-    //    var bloom = textureSampleLevel(bloomTexture, sampler_linear_clamp, uv, 0.f).rgb;
+    // color += bloom;
 
     // tonemap
-    let aces = ACESFitted(hdr);
-    let color = ApplySRGBCurve_Fast_Mix(aces);
+    color = ACESFitted(color);
+    if(SRGB_CONVERT){
+        color = ApplySRGBCurve_Fast_Mix(color);
+    }
 
     textureStore(outputTexture, DTid.xy, vec4(color,1.f));
 }

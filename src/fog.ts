@@ -73,7 +73,7 @@ export class Fog extends Renderer {
         const { worldMatrix, translation } = transformComponent;
         translation[2] = cameraCenter - 400;
 
-        transformComponent.dirty = true;
+        // transformComponent.dirty = true; // todo: has bug
 
         this._instanceStorageBuffer.update(new Float32Array(worldMatrix));
         // }

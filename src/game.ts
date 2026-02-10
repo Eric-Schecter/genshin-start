@@ -31,18 +31,20 @@ export class Game extends SceneRenderer {
         const cameraEntity = getPrimaryCamera();
         const { transforms } = scene.components;
         transforms[cameraEntity].rotation = quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180);
+        transforms[cameraEntity].translation = vec3.fromValues(0, 0, 0);
         transforms[cameraEntity].dirty = true;
 
         if (this._debug) {
             this._controller = new FirstPersonController(graphicsDevice.canvas);
-            this._controller.pos = vec3.fromValues(0, 0, 1);
-            const dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), this._controller.focus, this._controller.pos));
+            this._controller.pos = vec3.clone(transforms[cameraEntity].translation);
+            const dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), vec3.fromValues(0, 0, -1), this._controller.pos));
             const rotatedDir = vec3.transformQuat(vec3.create(), dir, quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180));
             this._controller.focus = vec3.add(vec3.create(), this._controller.pos, rotatedDir);
         } else {
             this._controller = new ForwardController();
+            this._controller.pos = vec3.clone(transforms[cameraEntity].translation);
             // todo: simpliy this
-            const dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), this._controller.focus, this._controller.pos));
+            const dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), vec3.fromValues(0, 0, -1), this._controller.pos));
             const rotatedDir = vec3.transformQuat(vec3.create(), dir, quat.rotateX(quat.create(), quat.create(), 5.5 * Math.PI / 180));
             this._controller.focus = vec3.add(vec3.create(), this._controller.pos, rotatedDir);
         }
@@ -52,7 +54,7 @@ export class Game extends SceneRenderer {
         this._background = new BackGround(this._graphicsDevice);
         this._cloud = new Cloud(graphicsDevice, this._resourceManager);
         this._bigCloud = new BigCloud(graphicsDevice, this._resourceManager);
-        this._fog = new Fog(graphicsDevice);
+        // this._fog = new Fog(graphicsDevice);
         this._lights = new Lights();
         this._polarLight = new PolarLight(graphicsDevice, this._resourceManager);
 
@@ -60,7 +62,7 @@ export class Game extends SceneRenderer {
             this._bigCloud,
             this._cloud,
             this._polarLight,
-            this._fog,
+            // this._fog,
         );
 
         this._skyRenderer.envTexture = this._background.create();

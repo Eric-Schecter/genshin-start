@@ -101,7 +101,6 @@ export function generateTangentData(
 
         const denom = s1 * t2 - s2 * t1;
         if (Math.abs(denom) < 1e-8) {
-            // console.warn('Denom is zero when generating tangents');
             const tangent = calculateFallbackTangent(facenormal);
             const t = vec4.fromValues(tangent[0], tangent[1], tangent[2], 1.0);
 
@@ -111,7 +110,7 @@ export function generateTangentData(
             continue;
         }
 
-        const r = 1.0 / denom;
+        const r = 1 / denom;
 
         const sdir = vec3.create();
         const tdir = vec3.create();

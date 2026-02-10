@@ -5,7 +5,7 @@ const SHADOW_TYPE_VSM: ShadowMapType = 2u;
 
 override SHADOWMAP_TYPE: u32 = SHADOW_TYPE_PCF;
 override CARTOON: bool = true;
-override USE_FOG: bool = true;
+override USE_FOG: bool = false;
 override FOG_EXP2: bool = true;
 
 const PI: f32 = 3.141592653589793;
@@ -66,9 +66,13 @@ struct VertexOutput {
 };
 
 fn getAmbient(N:vec3<f32>) -> vec3<f32> {
-    let mips = textureNumLevels(cubemap);
-    let maxMip = f32(mips - 1);
-    return textureSampleLevel(cubemap, linearSampler, N, maxMip).rgb + ambientLight.rgb;
+    if(CARTOON){
+        return ambientLight.rgb;
+    }else{
+        let mips = textureNumLevels(cubemap);
+        let maxMip = f32(mips - 1);
+        return textureSampleLevel(cubemap, linearSampler, N, maxMip).rgb + ambientLight.rgb;
+    }
 }
 
 struct LightingPart
@@ -277,15 +281,23 @@ fn light_directional(NdotH: f32, NdotV: f32, NdotL: f32, lightData: LightData,
 
     if(NdotL > 0 && shadow > 0.){
         let lightColor = lightData.color.rgb * shadow;
+        let NdotL_toon = smoothstep(0.25,0.27,NdotL);
 
-        directLight.diffuse = lightColor * BRDF_GetDiffuse(F, NdotL);
+        // directLight.diffuse = normalize(-lightData.direction.xyz);
+
+        // var NdotL_toon = smoothstep(0.25,0.27,NdotL)*pow(NdotL,0.5)*1.4;
+        // NdotL_toon += smoothstep(0.75,0.8,NdotL)*pow(NdotL,1.);
+
+        // directLight.diffuse = lightColor * BRDF_GetDiffuse(F, NdotL_toon);
 
         // let metalness= .5f;
         // var new_roughness = (1.0-metalness)*pow(roughness,0.4);
         // new_roughness += metalness*pow(roughness,1.2);
 
-        directLight.specular = lightColor * BRDF_GetSpecular(roughness, F, NdotH, NdotV, NdotL);
+        // directLight.specular = lightColor * BRDF_GetSpecular(roughness, F, NdotH, NdotV, NdotL);
     }
+
+    directLight.diffuse = vec3(NdotL);
 
     return directLight;
 }
@@ -346,7 +358,7 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
         let VdotH = saturate(dot(V, H));
 
         if(CARTOON){
-            NdotL = smoothstep(0.005, 0.05, NdotL);
+            // NdotL = smoothstep(0.005, 0.05,NdotL);
             NdotH = smoothstep(0.98, 0.99, NdotH);
         }
 
@@ -362,9 +374,9 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
 
                         let dotNL_reflect_faker = 1.-smoothstep(0.,0.3, dot(-L, N));
 
-                        var fresnelTerm = dot(V, N);
+                        var fresnelTerm = NdotV;
                         fresnelTerm = clamp(1.0 - fresnelTerm, 0., 1.) * dotNL_reflect_faker;
-                        // res.diffuse += fresnelCol*pow(fresnelTerm,5.)*0.8;
+                        // res.diffuse += fresnelCol*pow(fresnelTerm,4.5)*0.8;
                         // res.diffuse = vec3(dotNL_reflect_faker);
                     }
                     break;
@@ -424,11 +436,11 @@ fn env_brdf_approx(
 fn applyNormalMap(uv:vec2<f32>, TBN:mat3x3<f32>, n: vec3<f32>) -> vec3<f32>
 {
     let normalmap = textureSample(normalTexture, anisoSampler, uv);
-    if(all(normalmap == vec4(0.))){
+    if(all(normalmap.rgb == vec3(0.))){
         return n;
     }
     var normal = vec3(normalmap.rg, 1.f);
-    normal = normal * 2.f - vec3(1.f,1.f,1.f);
+    normal = normal * 2.f - vec3(1.f);
     // bump color
     return normalize(mix(normal, TBN * normal, length(normal)));
 }
@@ -448,11 +460,11 @@ fn main(input: VertexOutput) -> FragmentOutput  {
 
     var T = select(-input.tangent.xyz, input.tangent.xyz, input.isFrontFace);
     T = normalize(T);
-    let B = normalize(cross(T, normal) * input.tangent.w);
+    let B = normalize(cross(normal, T) * input.tangent.w);
     let TBN = mat3x3<f32>(T, B, normal);
 
     var N = applyNormalMap(input.uv, TBN, normal);
-    N = normal;
+    // N = normal;
 
     let surfaceMap = textureSample(metallicRoughnessTexture, anisoSampler, input.uv);
     let roughness = surfaceMap.g * material.roughness;
@@ -485,13 +497,21 @@ fn main(input: VertexOutput) -> FragmentOutput  {
 
     let envmapAccumulation = EnvironmentReflection_Global(R, F, roughness);
 
-    lighting.indirect.specular += max(vec3<f32>(0.), envmapAccumulation);
+    if(!CARTOON){
+        lighting.indirect.specular += max(vec3<f32>(0.), envmapAccumulation);
+    }
 
     let directLight = forwardLighting(N, V, NdotV, f0, roughness, input.world_pos, input.position.xy/screen_size);
     lighting.direct.diffuse = directLight.diffuse;
-    // lighting.direct.specular = directLight.specular;
+    lighting.direct.specular = directLight.specular;
 
     var color = applyLighting(lighting, albedo, emissive, F, occlusion);
+
+    let d = lighting.direct.diffuse ;
+    let specular = lighting.direct.specular + lighting.indirect.specular * occlusion;
+
+    // color = vec4(diffuse.rgb * d, 1.f);
+    // color = vec4(lighting.direct.diffuse, 1.f);
 
     if(USE_FOG){
         var fogFactor = 0.;
@@ -516,7 +536,7 @@ fn main(input: VertexOutput) -> FragmentOutput  {
     let linearDepth = -input.view_pos.z * far_rcp;
 
     var output: FragmentOutput;
-    output.color = color;
+    output.color = vec4(N,1.);
     output.depth = vec4(vec3(linearDepth), 1.);
     return output;
 

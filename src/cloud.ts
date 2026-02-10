@@ -22,6 +22,8 @@ export class Cloud extends Renderer {
 
     private _meshEntity = invalid_id;
 
+    private _init = true;
+
     public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
@@ -93,23 +95,15 @@ export class Cloud extends Renderer {
                 firstElement.translation[2] -= zLength * 0.1;
                 firstElement.dirty = true;
                 this._posList.unshift(firstElement);
-
-                // todo: delay update?
-                let stride = 64;
-
-                const data = new Float32Array(this._cloudEntities.length * stride);
-
-                let offset = 0;
-                stride = 16;
-                for (const entity of this._cloudEntities) {
-                    const { worldMatrix } = transforms[entity];
-                    data.set(worldMatrix, offset * stride);
-                    offset++;
-                }
-
-                this._instanceStorageBuffer.update(data);
             }
         }
+
+        if (this._posList[this._posList.length - 1].translation[2] > cameraCenter || this._init) {
+            // todo: delay update?
+            this._updateModelMatrix();
+        }
+
+        this._init = false;
     }
 
     public render(cmd: RenderCommandBuffer) {
@@ -145,9 +139,27 @@ export class Cloud extends Renderer {
         this._graphicsDevice.bindResource(cmd, viewMatrixBuffer, 0);
         this._graphicsDevice.bindResource(cmd, projMatrixBuffer, 1);
         this._graphicsDevice.bindResource(cmd, this._instanceStorageBuffer, 2);
-        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 3);
+        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_CLAMP)!, 3);
         this._graphicsDevice.bindResource(cmd, diffuseTexture.texture || this._resoueces.getTexture(EN_DATA_TEXTURE_TYPE.WHITE)!, 4);
         this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, this._posList.length);
+    }
+
+    private _updateModelMatrix() {
+        const { transforms } = scene.components;
+
+        let stride = 64;
+
+        const data = new Float32Array(this._cloudEntities.length * stride);
+
+        let offset = 0;
+        stride = 16;
+        for (const entity of this._cloudEntities) {
+            const { worldMatrix } = transforms[entity];
+            data.set(worldMatrix, offset * stride);
+            offset++;
+        }
+
+        this._instanceStorageBuffer.update(data);
     }
 
     private async _setupPipeline() {

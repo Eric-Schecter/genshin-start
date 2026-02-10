@@ -13,15 +13,17 @@ struct VertexOutput {
 
 @fragment
 fn main(input: VertexOutput) -> @location(0) vec4<f32> {
-    var mask = 1.5*textureSample(lightTexture,linearSampler,input.uv+vec2(time*0.015,0.)).r;
-    mask+= textureSample(lightTexture,linearSampler,input.uv*vec2(0.4,1.)+vec2(time*-0.0075,0.)).r;
+    var uv = input.uv;
+    uv.y = 1. - uv.y;
+    var mask = 1.5*textureSample(lightTexture,linearSampler,uv+vec2(time*0.015,0.)).r;
+    mask+= textureSample(lightTexture,linearSampler,uv*vec2(0.4,1.)+vec2(time*-0.0075,0.)).r;
 
     let col = vec4(vec3(1.8),mask);
 
     let distanceToCamera = distance(cameraPos,input.world_pos.xyz);
     var a = col.a;
     a*=smoothstep(200.,1000.,distanceToCamera);
-    a*=smoothstep(0.0,0.5,input.uv.y);
-    a*=smoothstep(0.0,0.1,input.uv.x)*smoothstep(1.0,0.9,input.uv.x);
+    a*=smoothstep(0.0,0.5,uv.y);
+    a*=smoothstep(0.0,0.1,uv.x)*smoothstep(1.0,0.9,uv.x);
     return vec4(col.rgb, a);
 }

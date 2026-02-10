@@ -1,7 +1,7 @@
 import { Material, Mesh, Root, Texture, WebIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-// import { tangents } from '@gltf-transform/functions';
-// import { generateTangents } from 'mikktspace';
+import { tangents } from '@gltf-transform/functions';
+import { generateTangents } from 'mikktspace';
 import draco3d from 'draco3dgltf';
 import { quat, vec2, vec3 } from 'gl-matrix';
 import { addComponent, addEntity } from 'bitecs';
@@ -39,7 +39,7 @@ export class ModelLoader {
         const document = await io.read(url);
 
         // await document.transform(
-        //     tangents()
+        //     tangents({ generateTangents })
         // ).catch(err => console.error(err));
 
         const rootNode = document.getRoot();
@@ -194,6 +194,10 @@ export class ModelLoader {
                 if (tangent) {
                     meshComponent.tangents = new Float32Array(tangent.getArray()!);
                 } else if (uv0 && normal) {
+                    // const tangentData = generateTangents(
+                    //     new Float32Array(position.getArray()!),
+                    //     new Float32Array(normal.getArray()!),
+                    //     new Float32Array(uv0.getArray()!)) as Float32Array<ArrayBuffer>;
                     const tangentData = generateTangentData(
                         this._accessorToVec3Array(position),
                         this._accessorToVec3Array(normal),

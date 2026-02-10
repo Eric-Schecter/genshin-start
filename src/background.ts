@@ -3,7 +3,7 @@ import {
     GraphicsDevice, SubresourceData, TextureDesc
 } from "@eric-schecter/graphics";
 import Color, { ColorInstance } from "color";
-import { mat3, vec3 } from "gl-matrix";
+import { mat3, vec3, vec4 } from "gl-matrix";
 
 export class BackGround {
     public constructor(private readonly _graphicsDevice: GraphicsDevice) { }
@@ -27,7 +27,7 @@ export class BackGround {
             usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
             miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            clear: {},
+            clear: { color: vec4.create() },
             layout: EN_RESOURCE_STATE.SHADER_RESOURCE,
             name: 'sky',
         };
@@ -48,6 +48,7 @@ export class BackGround {
                     Math.min(t * colorT.green() + tb * colorTB.green() + b * colorB.green(), 100000),
                     Math.min(t * colorT.blue() + tb * colorTB.blue() + b * colorB.blue(), 100000)
                 );
+
                 const colorAcesInv = this.Color_ACES_Inv(color);
 
                 rgba[index] = colorAcesInv[0];
@@ -60,7 +61,7 @@ export class BackGround {
         const data: SubresourceData = {
             dataPtr: rgba,
             rowRitch: width * getFormatStride(desc.format),
-            slicePitch: 0
+            slicePitch: 0,
         };
         return this._graphicsDevice.createTexture(desc, [data]);
     }
@@ -79,28 +80,28 @@ export class BackGround {
 
     private ACES_Inv(color: vec3): vec3 {
         const ACES_INPUT_MAT = mat3.fromValues(
-            1.76474, -0.14702, -0.03633,
-            -0.67577, 1.16025, -0.16243,
-            -0.08896, -0.01322, 1.19877
+            1.76474, -0.67577, -0.08896,
+            -0.14702, 1.16025, -0.01322,
+            -0.03633, -0.16243, 1.19877
         );
 
         const ACES_OUTPUT_MAT = mat3.fromValues(
-            0.64304, 0.05926, 0.00596,
-            0.31119, 0.93144, 0.06393,
-            0.04578, 0.00929, 0.93012
+            0.64304, 0.31119, 0.04578,
+            0.05926, 0.93144, 0.00929,
+            0.00596, 0.06393, 0.93012
         );
 
-        const result = vec3.clone(color);
+        const result = color;
 
-        vec3.transformMat3(result, result, ACES_OUTPUT_MAT);
+        vec3.transformMat3(result, result, mat3.transpose(mat3.create(), ACES_OUTPUT_MAT));
 
         result[0] = this.inv_rrt_odt_fit(result[0]);
         result[1] = this.inv_rrt_odt_fit(result[1]);
         result[2] = this.inv_rrt_odt_fit(result[2]);
 
-        vec3.transformMat3(result, result, ACES_INPUT_MAT);
+        vec3.transformMat3(result, result, mat3.transpose(mat3.create(), ACES_INPUT_MAT));
 
-        return Array.from(result);
+        return result;
     }
 
     private Color_ACES_Inv(color: ColorInstance) {

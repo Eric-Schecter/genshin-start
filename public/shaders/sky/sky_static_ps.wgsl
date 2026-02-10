@@ -8,7 +8,7 @@ struct VertexOutput {
 
 @fragment
 fn main(input: VertexOutput) -> @location(0) vec4<f32> {
-    var color = textureSampleBias(texture, linearSampler, input.uv, 0);
+    var color = textureSampleLevel(texture, linearSampler, input.uv, 0);
 
     color = clamp(color, vec4(0.0), vec4(65000.0));
 

@@ -33,7 +33,7 @@ class ImageLoader {
                 data[i * 4 + 0] = rgbFloat[i * 3 + 0]; // R
                 data[i * 4 + 1] = rgbFloat[i * 3 + 1]; // G
                 data[i * 4 + 2] = rgbFloat[i * 3 + 2]; // B
-                data[i * 4 + 3] = 1.0;                // A
+                data[i * 4 + 3] = 1;                // A
             }
 
             const dataRes = { data, width, height, name: url, colorSpace: EN_COLOR_SPACE.LINEAR };

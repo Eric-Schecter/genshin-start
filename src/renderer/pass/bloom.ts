@@ -73,7 +73,7 @@ export class Bloom extends Renderer {
         this._graphicsDevice.dispatch(cmd,
             Math.ceil(outputWidth / POSTPROCESS_BLOCKSIZE),
             Math.ceil(outputHeight / POSTPROCESS_BLOCKSIZE),
-            1);
+        1);
         this._graphicsDevice.endComputePass(cmd);
         this._graphicsDevice.endEvent(cmd);
 

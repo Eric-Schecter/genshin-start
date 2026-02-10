@@ -24,7 +24,7 @@ export class ImageRenderer extends Renderer {
         }
         this._graphicsDevice.bindPipeline(cmd, this._pipeline);
         this._graphicsDevice.bindResource(cmd, texture, 0);
-        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_WRAP)!, 1);
+        this._graphicsDevice.bindSampler(cmd, this._resoueces.getSampler(EN_SAMPLER_TYPE.LINEAR_CLAMP)!, 1);
         this._graphicsDevice.draw(cmd, 3);
     }
 

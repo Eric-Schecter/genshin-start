@@ -34,11 +34,18 @@ fn main(input: VertexInput) -> VertexOutput {
     let world_pos = (modelMatrix * vec4<f32>(input.position, 1.0)).xyz;
     let instPosition = modelMatrix[3].xyz;
 
-    let wh = vec2(2.,4.);
-    let rn = ceil(random(instPosition.xy)*wh.x*wh.y);
-    let cell = vec2(1.,1.)/wh;
-    var vUv = input.uv/wh;
-    vUv+=vec2(cell.x*(rn % wh.x),cell.y*(ceil(rn/wh.x)-1.));
+    let wh = vec2<f32>(2.0, 4.0);
+    let total = wh.x * wh.y;
+
+    let rn = ceil(random(instPosition.xy) * total);
+
+    let col = rn % wh.x;
+    let rowGL = ceil(rn / wh.x) - 1.0;
+    let row = (wh.y - 1.0) - rowGL;
+
+    let cell = vec2<f32>(1.0) / wh;
+    var vUv = input.uv * cell;
+    vUv += vec2(cell.x * col, cell.y * row);
 
     out.position = proj * view * vec4(world_pos, 1.0);
     out.uv = vUv;

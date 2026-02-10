@@ -95,22 +95,24 @@ export class PolarLight extends Renderer {
                         meshes[meshEntity].materialEntity.push(materialEntity);
 
                         this._meshEntity = meshEntity;
-                        this._polarLightEntities.push(this._prefab);
+                        this._polarLightEntities.push(childEntity);
                         this._posList.push(transformComponent);
                     }
                 }
             } else {
                 const clonedEntity = clone(this._prefab);
 
-                const transformComponent = transforms[clonedEntity];
-                transformComponent.translation = pos;
-                transformComponent.rotation = rotation;
-                transformComponent.scale = vec3.fromValues(0.1, 0.1, 0.1);
-                transformComponent.dirty = true;
+                for (const childEntity of query(scene, [hierarchies])) {
+                    if (hierarchies[childEntity].parent === clonedEntity) {
+                        const transformComponent = transforms[childEntity];
+                        transformComponent.translation = pos;
+                        transformComponent.rotation = rotation;
+                        transformComponent.dirty = true;
 
-                this._posList.push(transformComponent);
-
-                this._polarLightEntities.push(clonedEntity);
+                        this._polarLightEntities.push(childEntity);
+                        this._posList.push(transformComponent);
+                    }
+                }
             }
         }
     }

@@ -23,19 +23,20 @@ module.exports = (config) => {
         }),
     );
 
-    // config.module.rules.push({
-    //     test: /\.wasm$/,
-    //     type: 'webassembly/async',
-    // });
+    config.module.rules.push({
+        test: /\.wasm$/,
+        type: 'webassembly/async',
+    });
 
     config.resolve.alias = {
         '@': resolve(__dirname, './src')
     };
 
-    // config.experiments = {
-    //     ...config.experiments,
-    //     asyncWebAssembly: true,
-    // }
+    config.experiments = {
+        ...config.experiments,
+        asyncWebAssembly: true,
+        topLevelAwait: true,
+    }
 
     return config;
 };

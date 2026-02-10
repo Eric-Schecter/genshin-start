@@ -21,18 +21,18 @@ export class Plane {
         transforms[entity] = creaetDefaultTransformComponent();
         transforms[entity].scale = vec3.fromValues(width, height, 1);
 
-        addComponent(scene, entity, tags);
-        tags[entity] = creaetDefaultTagComponent();
-        tags[entity].tag = 'cloud';
+        // addComponent(scene, entity, tags);
+        // tags[entity] = creaetDefaultTagComponent();
+        // tags[entity].tag = 'cloud';
 
         const meshEntity = addEntity(scene);
         const { positions, normals, uvs, indices } = this._createMeshData();
         addComponent(scene, meshEntity, meshes);
         meshes[meshEntity] = createDefaultMeshComponent();
         const meshComponent = meshes[meshEntity];
-        meshComponent.positions = new Float32Array(positions.map(v => Array.from(v)).flat());
-        meshComponent.normals = new Float32Array(normals.map(v => Array.from(v)).flat());
-        meshComponent.uvs = new Float32Array(uvs.map(v => Array.from(v)).flat());
+        meshComponent.positions = new Float32Array(positions.flatMap(v => Array.from(v)));
+        meshComponent.normals = new Float32Array(normals.flatMap(v => Array.from(v)));
+        meshComponent.uvs = new Float32Array(uvs.flatMap(v => Array.from(v)));
         meshComponent.indices = new Uint32Array(indices);
         meshComponent.tangents = vec4ArrayToFloat32Array(generateTangentData(positions, normals, uvs, indices));
 
@@ -52,24 +52,24 @@ export class Plane {
         const halfHeight = height / 2;
 
         const positions = [
-            vec3.fromValues(-halfWidth, -halfHeight, 0.0),
-            vec3.fromValues(halfWidth, -halfHeight, 0.0),
-            vec3.fromValues(halfWidth, halfHeight, 0.0),
-            vec3.fromValues(-halfWidth, halfHeight, 0.0)
+            vec3.fromValues(-halfWidth, -halfHeight, 0),
+            vec3.fromValues(halfWidth, -halfHeight, 0),
+            vec3.fromValues(halfWidth, halfHeight, 0),
+            vec3.fromValues(-halfWidth, halfHeight, 0)
         ];
 
         const uvs = [
-            vec2.fromValues(0.0, 1.0),
-            vec2.fromValues(1.0, 1.0),
-            vec2.fromValues(1.0, 0.0),
-            vec2.fromValues(0.0, 0.0)
+            vec2.fromValues(0, 1),
+            vec2.fromValues(1, 1),
+            vec2.fromValues(1, 0),
+            vec2.fromValues(0, 0)
         ];
 
         const normals = [
-            vec3.fromValues(0.0, 0.0, 1.0),
-            vec3.fromValues(0.0, 0.0, 1.0),
-            vec3.fromValues(0.0, 0.0, 1.0),
-            vec3.fromValues(0.0, 0.0, 1.0)
+            vec3.fromValues(0, 0, 1),
+            vec3.fromValues(0, 0, 1),
+            vec3.fromValues(0, 0, 1),
+            vec3.fromValues(0, 0, 1)
         ];
 
         const indices = [
