@@ -1,6 +1,6 @@
 import { Material, Mesh, Root, Texture, WebIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { tangents } from '@gltf-transform/functions';
+import { tangents, unweld, weld, dedup } from '@gltf-transform/functions';
 import { generateTangents } from 'mikktspace';
 import draco3d from 'draco3dgltf';
 import { quat, vec2, vec3 } from 'gl-matrix';
@@ -16,7 +16,7 @@ import {
     clone,
     EN_COLOR_SPACE,
 } from './ecs';
-import { createTexture, generateTangentData, vec4ArrayToFloat32Array } from './utils';
+import { createTexture } from './utils';
 
 export class ModelLoader {
     private readonly _cached = new Map<string, number>();
@@ -38,9 +38,14 @@ export class ModelLoader {
             });
         const document = await io.read(url);
 
-        // await document.transform(
-        //     tangents({ generateTangents })
-        // ).catch(err => console.error(err));
+        await document.transform(
+            // normals(),
+            unweld(),
+            tangents({generateTangents}),
+            weld(),
+            dedup(),
+            // prune()
+        );
 
         const rootNode = document.getRoot();
 
@@ -193,18 +198,8 @@ export class ModelLoader {
                 const tangent = primitive.getAttribute('TANGENT');
                 if (tangent) {
                     meshComponent.tangents = new Float32Array(tangent.getArray()!);
-                } else if (uv0 && normal) {
-                    // const tangentData = generateTangents(
-                    //     new Float32Array(position.getArray()!),
-                    //     new Float32Array(normal.getArray()!),
-                    //     new Float32Array(uv0.getArray()!)) as Float32Array<ArrayBuffer>;
-                    const tangentData = generateTangentData(
-                        this._accessorToVec3Array(position),
-                        this._accessorToVec3Array(normal),
-                        this._accessorToVec2Array(uv0),
-                        this._accessorToIndexArray(indices));
-
-                    meshComponent.tangents = vec4ArrayToFloat32Array(tangentData);
+                } else {
+                    console.warn('no tangent');
                 }
                 meshComponent.indices = new Uint32Array(indices.getArray()!);
 

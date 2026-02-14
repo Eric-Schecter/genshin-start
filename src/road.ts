@@ -29,7 +29,7 @@ export class Road {
         }
 
         const { hierarchies, transforms, objects, meshes, materials } = scene.components;
-        const baseColor = vec4.fromValues(1, 252/255, 254/255, 1);
+        const baseColor = vec4.fromValues(1, 252 / 255, 254 / 255, 1);
 
         for (const entity of query(scene, [hierarchies, transforms])) {
             const hierarchy = hierarchies[entity];
@@ -43,13 +43,15 @@ export class Road {
 
                 this._children.push(entity);
 
-                const [meshEntity] = objects[entity].meshEntities;
-                const [materialEntity] = meshes[meshEntity].materialEntity;
-                const material = materials[materialEntity];
-                material.baseColorFactor = baseColor;
-                material.roughnessFactor = 5;
-                material.metallicFactor = 0;
-                material.dirty = true;
+                const meshEntities = objects[entity].meshEntities;
+                for (const meshEntity of meshEntities) {
+                    const [materialEntity] = meshes[meshEntity].materialEntity;
+                    const material = materials[materialEntity];
+                    material.baseColorFactor = baseColor;
+                    material.roughnessFactor = 5;
+                    material.metallicFactor = 0;
+                    material.dirty = true;
+                }
             }
         }
 

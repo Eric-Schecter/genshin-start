@@ -300,7 +300,6 @@ export class SceneRenderer extends Renderer {
     }
 
     private _postprocess(cmd: RenderCommandBuffer, tex1: WGPUTexture, tex2: WGPUTexture) {
-        return tex1;
         const linearDepthTexture = this.isEnable(EN_ENABLE_FLAG.MULTI_SAMPLE) ? this._resolvedTextureDepth : this._linearDepthTexture;
 
         if (this.isEnable(EN_ENABLE_FLAG.BLOOM)) {

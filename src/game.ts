@@ -21,7 +21,7 @@ export class Game extends SceneRenderer {
     private readonly _lights: Lights;
     private readonly _polarLight: PolarLight;
 
-    private readonly _debug = true;
+    private readonly _debug = false;
 
     public constructor(graphicsDevice: GraphicsDevice) {
         super(graphicsDevice);
@@ -54,7 +54,7 @@ export class Game extends SceneRenderer {
         this._background = new BackGround(this._graphicsDevice);
         this._cloud = new Cloud(graphicsDevice, this._resourceManager);
         this._bigCloud = new BigCloud(graphicsDevice, this._resourceManager);
-        // this._fog = new Fog(graphicsDevice);
+        this._fog = new Fog(graphicsDevice);
         this._lights = new Lights();
         this._polarLight = new PolarLight(graphicsDevice, this._resourceManager);
 
@@ -62,7 +62,7 @@ export class Game extends SceneRenderer {
             this._bigCloud,
             this._cloud,
             this._polarLight,
-            // this._fog,
+            this._fog,
         );
 
         this._skyRenderer.envTexture = this._background.create();

@@ -5,8 +5,8 @@ const SHADOW_TYPE_VSM: ShadowMapType = 2u;
 
 override SHADOWMAP_TYPE: u32 = SHADOW_TYPE_PCF;
 override CARTOON: bool = true;
-override USE_FOG: bool = false;
-override FOG_EXP2: bool = true;
+override USE_FOG: bool = true;
+override FOG_EXP2: bool = false;
 
 const PI: f32 = 3.141592653589793;
 const PI2: f32 = 6.28318531;
@@ -118,6 +118,11 @@ fn D_GGX(roughness:f32, NoH:f32) -> f32
     let d = k * k * (1.0 / PI);
     return saturate_mediump(d);
 }
+fn D_GGX_1(alpha: f32, dotNH: f32) -> f32 {
+    let a2 = alpha * alpha;
+    let denom = dotNH * dotNH * (a2 - 1.0) + 1.;
+    return a2 / (denom * denom * PI);
+}
 
 // Visibility
 // Geometry Attenuation Term/Masking-Shadowing Function
@@ -134,6 +139,21 @@ fn V_SmithGGXCorrelated(roughness: f32, NoV: f32, NoL: f32) -> f32
 	// clamp to the maximum value representable in mediump
     return saturate_mediump(v);
 }
+
+// const EPSILON: f32 = 0.0000001;
+
+// fn V_SmithGGXCorrelated_1(alpha: f32, dotNL: f32, dotNV: f32) -> f32 {
+//     let NoL = clamp(dotNL, 0.0, 1.0);
+//     let NoV = clamp(dotNV, 0.0, 1.0);
+
+//     let a2 = alpha * alpha;
+
+//     let gv = NoL * sqrt(a2 + (1.0 - a2) * (NoV * NoV));
+
+//     let gl = NoV * sqrt(a2 + (1.0 - a2) * (NoL * NoL));
+
+//     return 0.5 / max(gv + gl, EPSILON);
+// }
 
 fn BRDF_GetSpecular(roughness: f32, F: vec3<f32>,NdotH:f32, NdotV:f32,NdotL: f32) -> vec3<f32>
 {
@@ -163,6 +183,25 @@ fn BRDF_GetDiffuse(F:vec3<f32>, NdotL: f32) -> vec3<f32>
     // clearcout
 
     return diffuse * NdotL;
+}
+
+fn BRDF_GGX(
+    NdotL: f32,
+    NdotV: f32,
+    NdotH: f32,
+    VdotH: f32,
+    f0: vec3f,
+    f90: vec3f,
+    roughness: f32
+) -> vec3f {
+    let alpha = roughness * roughness; // UE4's roughness
+
+    var F = F_Schlick_1(f0, f90, VdotH);
+
+    let V = V_SmithGGXCorrelated(alpha, NdotL, NdotV);
+    let D = D_GGX_1(alpha, NdotH);
+
+    return F * V * D;
 }
 
 // fn any(value: vec3<f32>) -> bool {
@@ -260,8 +299,8 @@ fn isSaturated(v: vec3<f32>) -> bool {
     return all(v >= vec3<f32>(0.0)) && all(v <= vec3<f32>(1.0));
 }
 
-fn light_directional(NdotH: f32, NdotV: f32, NdotL: f32, lightData: LightData,
-    F: vec3<f32>, roughness: f32, world_pos: vec3<f32>, fragCoord: vec2<f32>) -> LightingPart
+fn light_directional(NdotH: f32, NdotV: f32, NdotL: f32, VdotH: f32, lightData: LightData,
+    f0: vec3<f32>, roughness: f32, metalness: f32, world_pos: vec3<f32>, fragCoord: vec2<f32>, diffuseColor: vec3<f32>) -> LightingPart
 {
     var directLight = initLightingPart();
 
@@ -281,23 +320,21 @@ fn light_directional(NdotH: f32, NdotV: f32, NdotL: f32, lightData: LightData,
 
     if(NdotL > 0 && shadow > 0.){
         let lightColor = lightData.color.rgb * shadow;
-        let NdotL_toon = smoothstep(0.25,0.27,NdotL);
-
-        // directLight.diffuse = normalize(-lightData.direction.xyz);
-
-        // var NdotL_toon = smoothstep(0.25,0.27,NdotL)*pow(NdotL,0.5)*1.4;
+        var NdotL_toon = smoothstep(0.25,0.27,NdotL);
         // NdotL_toon += smoothstep(0.75,0.8,NdotL)*pow(NdotL,1.);
 
-        // directLight.diffuse = lightColor * BRDF_GetDiffuse(F, NdotL_toon);
+        if(CARTOON){
+            directLight.diffuse = lightColor * NdotL_toon * diffuseColor / PI;
 
-        // let metalness= .5f;
-        // var new_roughness = (1.0-metalness)*pow(roughness,0.4);
-        // new_roughness += metalness*pow(roughness,1.2);
+            let metalness= 0.f;
+            var new_roughness = (1.0-metalness)*pow(roughness,0.4);
+            new_roughness += metalness*pow(roughness,1.2);
 
-        // directLight.specular = lightColor * BRDF_GetSpecular(roughness, F, NdotH, NdotV, NdotL);
+	        let f90 = vec3(1.0);
+
+            directLight.specular = lightColor * NdotL_toon * BRDF_GGX(NdotL,NdotV,NdotH,VdotH,f0,f90,new_roughness);
+        }
     }
-
-    directLight.diffuse = vec3(NdotL);
 
     return directLight;
 }
@@ -339,8 +376,16 @@ fn F_Schlick(f0: vec3<f32>, VoH: f32) -> vec3<f32>
     return f0 + (f90 - f0) * pow(1.0 - VoH, 5);
 }
 
-fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughness: f32,
-    world_pos: vec3<f32>, fragCoord: vec2<f32>) -> LightingPart{
+fn F_Schlick_1(f0: vec3<f32>, f90: vec3<f32>, VoH: f32) -> vec3<f32>
+{
+    let exponent = (VoH * (-5.55473) - 6.98316) * VoH;
+    let fresnel = pow(2.0, exponent);
+
+    return f0 * (1.0 - fresnel) + f90 * fresnel;
+}
+
+fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughness: f32, metalness: f32,
+    world_pos: vec3<f32>, fragCoord: vec2<f32>, diffuseColor: vec3<f32>) -> LightingPart{
     var directLight = initLightingPart();
     let light_count = 64u;
 
@@ -359,7 +404,7 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
 
         if(CARTOON){
             // NdotL = smoothstep(0.005, 0.05,NdotL);
-            NdotH = smoothstep(0.98, 0.99, NdotH);
+            // NdotH = smoothstep(0.98, 0.99, NdotH);
         }
 
         if(light.params.x == 1)
@@ -367,7 +412,7 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
             var res = initLightingPart();
             switch (u32(light.params.y)){
                 case LIGHT_TYPE_DIRECTIONAL {
-                    res = light_directional(NdotH, NdotV, NdotL, light, F, roughness, world_pos, fragCoord);
+                    res = light_directional(NdotH, NdotV, NdotL, VdotH, light, f0, roughness, metalness, world_pos, fragCoord, diffuseColor);
 
                     if(CARTOON){
                         let fresnelCol = vec3(0.3335, 0.9020, 3.4120);
@@ -376,8 +421,7 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
 
                         var fresnelTerm = NdotV;
                         fresnelTerm = clamp(1.0 - fresnelTerm, 0., 1.) * dotNL_reflect_faker;
-                        // res.diffuse += fresnelCol*pow(fresnelTerm,4.5)*0.8;
-                        // res.diffuse = vec3(dotNL_reflect_faker);
+                        res.diffuse += fresnelCol*pow(fresnelTerm,4.5)*0.8;
                     }
                     break;
                 }
@@ -399,13 +443,16 @@ fn forwardLighting(N:vec3<f32>, V: vec3<f32>, NdotV: f32, f0: vec3<f32>, roughne
     return directLight;
 }
 
-fn applyLighting(lighting:Lighting, color: vec3<f32>, emissive: vec3<f32>, F: vec3<f32>, occlusion: f32) -> vec4<f32>
+fn applyLighting(lighting:Lighting, color: vec3<f32>, emissive: vec3<f32>, F: vec3<f32>, occlusion: f32, diffuseColor: vec3<f32>) -> vec4<f32>
 {
     // let diffuse = lighting.direct.diffuse / PI + lighting.indirect.diffuse * (vec3(1.f) - F) * occlusion;
-    let diffuse = lighting.direct.diffuse + lighting.indirect.diffuse * (vec3(1.f) - F) * occlusion;
-    let specular = lighting.direct.specular + lighting.indirect.specular * occlusion;
+    // let specular = lighting.direct.specular + lighting.indirect.specular * occlusion;
 
-    return vec4(color * diffuse + specular + emissive, 1.f);
+    let diffuse = lighting.direct.diffuse + lighting.indirect.diffuse * diffuseColor;
+    let specular = lighting.direct.specular + lighting.indirect.specular * diffuseColor;
+
+    // return vec4(color * diffuse + specular + emissive, 1.f);
+        return vec4( diffuse + specular + emissive, 1.f);
 }
 
 fn EnvironmentReflection_Global(R: vec3<f32>, F:vec3<f32>, roughness: f32) -> vec3<f32>
@@ -463,8 +510,7 @@ fn main(input: VertexOutput) -> FragmentOutput  {
     let B = normalize(cross(normal, T) * input.tangent.w);
     let TBN = mat3x3<f32>(T, B, normal);
 
-    var N = applyNormalMap(input.uv, TBN, normal);
-    // N = normal;
+    let N = applyNormalMap(input.uv, TBN, normal);
 
     let surfaceMap = textureSample(metallicRoughnessTexture, anisoSampler, input.uv);
     let roughness = surfaceMap.g * material.roughness;
@@ -501,17 +547,11 @@ fn main(input: VertexOutput) -> FragmentOutput  {
         lighting.indirect.specular += max(vec3<f32>(0.), envmapAccumulation);
     }
 
-    let directLight = forwardLighting(N, V, NdotV, f0, roughness, input.world_pos, input.position.xy/screen_size);
+    let directLight = forwardLighting(N, V, NdotV, f0, roughness, metalness, input.world_pos, input.position.xy/screen_size, diffuse.rgb);
     lighting.direct.diffuse = directLight.diffuse;
     lighting.direct.specular = directLight.specular;
 
-    var color = applyLighting(lighting, albedo, emissive, F, occlusion);
-
-    let d = lighting.direct.diffuse ;
-    let specular = lighting.direct.specular + lighting.indirect.specular * occlusion;
-
-    // color = vec4(diffuse.rgb * d, 1.f);
-    // color = vec4(lighting.direct.diffuse, 1.f);
+    var color = applyLighting(lighting, albedo, emissive, F, occlusion, diffuse.rgb);
 
     if(USE_FOG){
         var fogFactor = 0.;
@@ -536,9 +576,7 @@ fn main(input: VertexOutput) -> FragmentOutput  {
     let linearDepth = -input.view_pos.z * far_rcp;
 
     var output: FragmentOutput;
-    output.color = vec4(N,1.);
+    output.color = color;
     output.depth = vec4(vec3(linearDepth), 1.);
     return output;
-
-    // return vec4(lighting.direct.diffuse,1.);
 }

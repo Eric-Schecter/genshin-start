@@ -63,8 +63,7 @@ export class MaterialSystem {
                 }
             })
 
-            if (!materialComponent.shaderMaterialBuffer) {
-                materialComponent.shaderMaterialBuffer = graphicsDevice.createBuffer({
+            materialComponent.shaderMaterialBuffer ??= graphicsDevice.createBuffer({
                     size: floatSize * 8,
                     name: 'shader material buffer',
                     usage: EN_USAGE.DEFAULT,
@@ -72,8 +71,8 @@ export class MaterialSystem {
                     miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
                     stride: 0,
                     count: 1,
-                })
-            }
+                });
+
             materialComponent.shaderMaterialBuffer?.update(new Float32Array([
                 ...Array.from(baseColorFactor), roughnessFactor, 0, metallicFactor, 0
             ]));

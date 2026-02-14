@@ -136,7 +136,8 @@ export class MeshRenderer extends Renderer {
             const transform = transforms[entity];
             if (light.type === EN_LIGHT_TYPE.DIRECTIONAL && light.dirty) {
                 // if (light.type === EN_LIGHT_TYPE.DIRECTIONAL) {
-                const color = vec3.scale(vec3.create(), light.color, light.intensity);
+                const color = vec3.scale(vec3.create(), light.color, light.intensity * Math.PI); // todo: PI?
+
                 const lightData = new Float32Array([
                     ...Array.from(transform.translation), 0,
                     ...Array.from(getForward(quatToMat4(transform.rotation))), 0,

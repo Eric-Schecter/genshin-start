@@ -20,11 +20,13 @@ export class Column {
                 for (const childEntity of query(scene, [hierarchies])) {
                     const hierarchyComponent = hierarchies[childEntity];
                     if (hierarchyComponent.parent === entity) {
-                        const [meshEntity] = objects[childEntity].meshEntities;
-                        const [materialEntity] = meshes[meshEntity].materialEntity;
-                        const material = materials[materialEntity]
-                        material.metallicFactor = 0.3;
-                        material.dirty = true;
+                        const meshEntities = objects[childEntity].meshEntities;
+                        for (const meshEntity of meshEntities) {
+                            const [materialEntity] = meshes[meshEntity].materialEntity;
+                            const material = materials[materialEntity];
+                            material.metallicFactor = 0.3;
+                            material.dirty = true;
+                        }
                     }
                 }
             }
@@ -34,7 +36,6 @@ export class Column {
             const entity = this._prefab.get(Object);
             if (!entity || entity === invalid_id) {
                 console.error(`can not find model:${Object}`);
-                continue;
             }
             else {
                 const clonedEntity = this._markedObj.has(Object) ? clone(entity) : entity;

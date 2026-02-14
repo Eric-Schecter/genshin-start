@@ -63,7 +63,7 @@ fn main(@builtin(global_invocation_id) DTid: vec3<u32>) {
     var color = textureSampleLevel(inputTexture, sampler_linear_clamp, uv, 0.).rgb;
 
     // bloom
-    // let exposure = params.bloom.x;
+    let exposure = params.bloom.x;
     // color *= exposure;
     color /= 0.6;
 
