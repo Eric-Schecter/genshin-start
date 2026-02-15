@@ -20,7 +20,8 @@
         "gl-matrix": "^3.4.4",
         "hdr.js": "^0.2.0",
         "maxrects-packer": "^2.7.3",
-        "mikktspace": "^1.1.1"
+        "mikktspace": "^1.1.1",
+        "tone": "^15.1.22"
     },
     "devDependencies": {
         "@eric-schecter/eslint": "1.0.10",

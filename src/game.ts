@@ -1,5 +1,6 @@
 import { GraphicsDevice } from "@eric-schecter/graphics";
 import { quat, vec3 } from "gl-matrix";
+import * as Tone from 'tone';
 import { FirstPersonController, getPrimaryCamera, SceneRenderer, scene, EN_ENABLE_FLAG } from "./renderer";
 import { Road } from "./road";
 import { ForwardController } from "./forward_controller";
@@ -90,6 +91,16 @@ export class Game extends SceneRenderer {
             this._bigCloud.onload();
             this._polarLight.onload();
         });
+
+        const player = new Tone.Player({
+            url: "audios/BGM.mp3",
+            loop: true,
+            autostart: false,
+        }
+        ).toDestination();
+        document.addEventListener('click', () => {
+            player.start();
+        })
     }
 
     public update(dt: number, et: number) {
