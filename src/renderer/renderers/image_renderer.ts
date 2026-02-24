@@ -5,6 +5,8 @@ import {
 } from "@eric-schecter/graphics";
 import { Renderer } from "./renderer";
 import { EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
+import fullScreenFlipyVertexShader from '../../shaders/fullscreen_flipy_vs.wgsl';
+import imagePixelShader from '../../shaders/image_ps.wgsl';
 
 export class ImageRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
@@ -28,12 +30,7 @@ export class ImageRenderer extends Renderer {
         this._graphicsDevice.draw(cmd, 3);
     }
 
-    private async _setupPipeline() {
-        const [vs, ps] = await Promise.all([
-            this._graphicsDevice.createShader('shaders/fullscreen_flipy_vs.wgsl'),
-            this._graphicsDevice.createShader('shaders/image_ps.wgsl')
-        ]);
-
+    private _setupPipeline() {
         const dss: DepthStencilState = {
             depthEnable: false,
             stencilEnable: false,
@@ -89,8 +86,8 @@ export class ImageRenderer extends Renderer {
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({
-            vs,
-            ps,
+            vs : this._graphicsDevice.createShaderByCode(fullScreenFlipyVertexShader),
+            ps : this._graphicsDevice.createShaderByCode(imagePixelShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             bs,

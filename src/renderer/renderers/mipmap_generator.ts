@@ -3,6 +3,8 @@ import { Renderer } from "./renderer";
 import { GENERATEMIPCHAIN_2D_BLOCK_SIZE } from "./constant";
 import { Gaussian } from "../pass";
 import { EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
+import generateMipchainCubeFloat4CS from '../../shaders/mipmap/generate_mipchain_cube_float4_cs.wgsl';
+import generateMipchain2DFloat4CS from '../../shaders/mipmap/generate_mipchain_2d_float4_cs.wgsl';
 
 export enum EN_MIPGENFILTER {
     POINT,
@@ -11,13 +13,14 @@ export enum EN_MIPGENFILTER {
 }
 
 export class MipmapGenerator extends Renderer {
-    private _pipelineCube: ComputePipeline;
+    private readonly _pipelineCube: ComputePipeline;
 
-    private _pipeline2D: ComputePipeline;
+    private readonly _pipeline2D: ComputePipeline;
 
     public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager, private readonly _gaussian: Gaussian) {
         super(graphicsDevice);
-        this._createPipelines();
+        this._pipelineCube = this._graphicsDevice.createComputePipelineByCode(generateMipchainCubeFloat4CS);
+        this._pipeline2D = this._graphicsDevice.createComputePipelineByCode(generateMipchain2DFloat4CS);
     }
 
     public update(dt: number) { }
@@ -164,12 +167,5 @@ export class MipmapGenerator extends Renderer {
         } else {
             throw new Error('not supported');
         }
-    }
-
-    private async _createPipelines() {
-        [this._pipelineCube, this._pipeline2D] = await Promise.all([
-            this._graphicsDevice.createComputePipeline('shaders/mipmap/generate_mipchain_cube_float4_cs.wgsl'),
-            this._graphicsDevice.createComputePipeline('shaders/mipmap/generate_mipchain_2d_float4_cs.wgsl'),
-        ]);
     }
 }

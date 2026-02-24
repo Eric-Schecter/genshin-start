@@ -1,6 +1,6 @@
 import {
     EN_BIND_FLAG, EN_COMPARISION_FUNC, EN_FILTER, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_SAMPLER_BORDER_COLOR, EN_TEX_TYPE, EN_TEXTURE_ADDRESS_MODE,
-    EN_USAGE, getFormatStride, GPUBufferDesc, GraphicsDevice, Sampler, TextureDesc, WGPUTexture
+    EN_USAGE, getFormatStride, GraphicsDevice, Sampler, TextureDesc, WGPUTexture
 } from "@eric-schecter/graphics";
 
 export enum EN_SAMPLER_TYPE {
@@ -156,7 +156,7 @@ export class ResourceManager {
             comparisonFunc: EN_COMPARISION_FUNC.NEVER,
             borderColor: EN_SAMPLER_BORDER_COLOR.OPAQUE_BLACK,
             minLod: 0,
-            maxLod: 1000.0,
+            maxLod: 1000,
         }));
 
         this._samplers.set(EN_SAMPLER_TYPE.DEPTH_COMPARE, this._graphicsDevice.createSampler({

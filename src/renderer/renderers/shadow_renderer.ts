@@ -12,6 +12,7 @@ import { Renderer } from "./renderer";
 import { scene, EN_LIGHT_TYPE } from "../ecs";
 import { Packer } from "./packer";
 import { floatSize, maxInstanceCount } from "../constant";
+import meshVertexShader from '../../shaders/mesh_vs.wgsl';
 
 export class ShadowRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
@@ -233,9 +234,7 @@ export class ShadowRenderer extends Renderer {
         this._graphicsDevice.endEvent(cmd);
     }
 
-    private async _setupPipeline() {
-        const vs = await this._graphicsDevice.createShader('shaders/mesh_vs.wgsl');
-
+    private _setupPipeline() {
         const il: InputLayout = {
             elements: [
                 {
@@ -323,7 +322,7 @@ export class ShadowRenderer extends Renderer {
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({
-            vs,
+            vs: this._graphicsDevice.createShaderByCode(meshVertexShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,

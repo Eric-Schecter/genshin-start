@@ -1,17 +1,20 @@
 import { ComputePipeline, GraphicsDevice, RenderCommandBuffer, WGPUBuffer, WGPUTexture } from "@eric-schecter/graphics";
 import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, Renderer, ResourceManager } from "../renderers";
+import tonemapShader from '../../shaders/postprocess/tonemap_cs.wgsl';
 
 const POSTPROCESS_BLOCKSIZE = 8;
 
 export class Tonemap extends Renderer {
-    private _pipeline: ComputePipeline;
+    private readonly _pipeline: ComputePipeline;
 
-    private _params: WGPUBuffer;
+    private readonly _params: WGPUBuffer;
 
     public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
-        this._init();
+        this._pipeline = this._graphicsDevice.createComputePipelineByCode(tonemapShader);
+
+        this._params = this._setupUniformBuffer([1, 1, 1, 1, 1, 0, 0, 0], 'params');
     }
 
     public update(dt: number) { }
@@ -38,11 +41,5 @@ export class Tonemap extends Renderer {
             1);
         this._graphicsDevice.endComputePass(cmd);
         this._graphicsDevice.endEvent(cmd);
-    }
-
-    private async _init() {
-        this._pipeline = await this._graphicsDevice.createComputePipeline('shaders/postprocess/tonemap_cs.wgsl');
-
-        this._params = this._setupUniformBuffer([1, 1, 1, 1, 1, 0, 0, 0], 'params');
     }
 }

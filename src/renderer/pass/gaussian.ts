@@ -1,17 +1,24 @@
 import { ComputePipeline, GraphicsDevice, RenderCommandBuffer, WGPUBuffer, WGPUTexture } from "@eric-schecter/graphics";
 import { EN_SAMPLER_TYPE, Renderer, ResourceManager } from "../renderers";
+import blurGaussianComputeShader from '../../shaders/postprocess/blur_gaussian_float4_cs.wgsl';
 
 const POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT = 256;
 
 export class Gaussian extends Renderer {
-    private _pipeline: ComputePipeline;
+    private readonly _pipeline: ComputePipeline;
 
     private readonly _paramsBuffer: WGPUBuffer[][] = [];
 
     public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
-        this._init();
+        this._paramsBuffer.push([this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
+            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
+            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
+            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
+            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')]);
+
+        this._pipeline = this._graphicsDevice.createComputePipelineByCode(blurGaussianComputeShader);
     }
 
     public update(dt: number) { }
@@ -62,15 +69,5 @@ export class Gaussian extends Renderer {
             Math.ceil(ry / POSTPROCESS_BLUR_GAUSSIAN_THREADCOUNT),
             1);
         this._graphicsDevice.endComputePass(cmd);
-    }
-
-    private async _init() {
-        this._paramsBuffer.push([this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
-            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
-            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
-            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')],
-            [this._setupUniformBuffer(new Array(8).fill(0), 'params horizontal'), this._setupUniformBuffer(new Array(8).fill(0), 'params vertical')]);
-
-        this._pipeline = await this._graphicsDevice.createComputePipeline('shaders/postprocess/blur_gaussian_float4_cs.wgsl');
     }
 }

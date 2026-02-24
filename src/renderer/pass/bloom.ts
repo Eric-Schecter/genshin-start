@@ -1,11 +1,12 @@
 import { ComputePipeline, EN_BIND_FLAG, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_TEX_TYPE, EN_USAGE, GraphicsDevice, RenderCommandBuffer, WGPUBuffer, WGPUTexture } from "@eric-schecter/graphics";
 import { EN_MIPGENFILTER, EN_SAMPLER_TYPE, MipmapGenerator, Renderer, ResourceManager } from "../renderers";
 import { vec4 } from "gl-matrix";
+import bloomComputeShader from '../../shaders/postprocess/bloom_cs.wgsl';
 
 const POSTPROCESS_BLOCKSIZE = 8;
 
 export class Bloom extends Renderer {
-    private _pipeline: ComputePipeline;
+    private readonly _pipeline: ComputePipeline;
 
     private _bloomThreshold = 2;
 
@@ -15,14 +16,16 @@ export class Bloom extends Renderer {
 
     private _tempTex: WGPUTexture;
 
-    private _params: WGPUBuffer;
+    private readonly _params: WGPUBuffer;
 
     private _needUpdate = true;
 
     public constructor(graphicsDevice: GraphicsDevice, private readonly _resoueces: ResourceManager) {
         super(graphicsDevice);
 
-        this._init();
+        this._params = this._setupUniformBuffer([1, 1, this._exposure, this._bloomThreshold], 'params');
+
+        this._pipeline = this._graphicsDevice.createComputePipelineByCode(bloomComputeShader);
     }
 
     public get res() {
@@ -73,7 +76,7 @@ export class Bloom extends Renderer {
         this._graphicsDevice.dispatch(cmd,
             Math.ceil(outputWidth / POSTPROCESS_BLOCKSIZE),
             Math.ceil(outputHeight / POSTPROCESS_BLOCKSIZE),
-        1);
+            1);
         this._graphicsDevice.endComputePass(cmd);
         this._graphicsDevice.endEvent(cmd);
 
@@ -101,11 +104,5 @@ export class Bloom extends Renderer {
         this._output = this._graphicsDevice.createTexture(desc);
 
         this._tempTex = this._graphicsDevice.createTexture({ ...desc, name: 'bloom temp' });
-    }
-
-    private async _init() {
-        this._params = this._setupUniformBuffer([1, 1, this._exposure, this._bloomThreshold], 'params');
-
-        this._pipeline = await this._graphicsDevice.createComputePipeline('shaders/postprocess/bloom_cs.wgsl');
     }
 }

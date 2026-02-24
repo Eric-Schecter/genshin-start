@@ -15,6 +15,12 @@ import { scene } from "../ecs";
 import { query } from "bitecs";
 import { imageLoader } from "../image_loader";
 import { EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
+import fullScreenVertexShader from '../../shaders/fullscreen_vs.wgsl';
+import skyCubemapPixelShader from '../../shaders/sky/sky_static_cubemap_ps.wgsl';
+import skyStaticPixelShader from '../../shaders/sky/sky_static_ps.wgsl';
+import skyStaticEnvVertexShader from '../../shaders/sky/envmap_sky_static_vs.wgsl';
+import skyStaticEnvPixelShader from '../../shaders/sky/envmap_sky_static_ps.wgsl';
+import filterEnvShader from '../../shaders/filter_envmap_cs.wgsl';
 
 export class SkyRenderer extends Renderer {
     private _enable = true;
@@ -310,7 +316,7 @@ export class SkyRenderer extends Renderer {
         this._camerasUniformBuffer.update(this._camerasUniform);
     }
 
-    private async _setupPipeline() {
+    private _setupPipeline() {
         const bs: BlendState = {
             renderTarget: [
                 {
@@ -376,66 +382,51 @@ export class SkyRenderer extends Renderer {
             }
         };
 
-        {
-            const [vsFullScreen, psStaticSky, psStaticSkyCubemap] = await Promise.all([
-                this._graphicsDevice.createShader('shaders/fullscreen_vs.wgsl'),
-                this._graphicsDevice.createShader('shaders/sky/sky_static_ps.wgsl'),
-                this._graphicsDevice.createShader('shaders/sky/sky_static_cubemap_ps.wgsl')
-            ]);
+        this._skyPipeline = this._graphicsDevice.createPipeline({
+            vs: this._graphicsDevice.createShaderByCode(fullScreenVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(skyStaticPixelShader),
+            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
-            this._skyPipeline = this._graphicsDevice.createPipeline({
-                vs: vsFullScreen,
-                ps: psStaticSky,
-                topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
+            bs,
+            rs,
+            dss,
 
-                bs,
-                rs,
-                dss,
+            patchControlPoints: 1,
 
-                patchControlPoints: 1,
+            sampleMask: 0xFFFFFFFF,
+            name: 'sky',
+        });
 
-                sampleMask: 0xFFFFFFFF,
-                name: 'sky',
-            });
+        this._skyCubemapPipeline = this._graphicsDevice.createPipeline({
+            vs: this._graphicsDevice.createShaderByCode(fullScreenVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(skyCubemapPixelShader),
+            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
-            this._skyCubemapPipeline = this._graphicsDevice.createPipeline({
-                vs: vsFullScreen,
-                ps: psStaticSkyCubemap,
-                topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
+            bs,
+            rs,
+            dss,
 
-                bs,
-                rs,
-                dss,
+            patchControlPoints: 1,
 
-                patchControlPoints: 1,
+            sampleMask: 0xFFFFFFFF,
+            name: 'sky cubemap',
+        });
 
-                sampleMask: 0xFFFFFFFF,
-                name: 'sky cubemap',
-            });
-        }
+        this._skyEnvPipeline = this._graphicsDevice.createPipeline({
+            vs: this._graphicsDevice.createShaderByCode(skyStaticEnvVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(skyStaticEnvPixelShader),
+            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
-        {
-            const [vs, ps] = await Promise.all([
-                this._graphicsDevice.createShader('shaders/sky/envmap_sky_static_vs.wgsl'),
-                this._graphicsDevice.createShader('shaders/sky/envmap_sky_static_ps.wgsl')
-            ]);
+            bs,
+            rs,
+            dss,
 
-            this._skyEnvPipeline = this._graphicsDevice.createPipeline({
-                vs,
-                ps,
-                topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
+            patchControlPoints: 1,
 
-                bs,
-                rs,
-                dss,
+            sampleMask: 0xFFFFFFFF,
+            name: 'sky env map',
+        });
 
-                patchControlPoints: 1,
-
-                sampleMask: 0xFFFFFFFF,
-                name: 'sky env map',
-            });
-        }
-
-        this._filterEnvMapPipeline = await this._graphicsDevice.createComputePipeline('shaders/filter_envmap_cs.wgsl');
+        this._filterEnvMapPipeline = this._graphicsDevice.createComputePipelineByCode(filterEnvShader);
     }
 }

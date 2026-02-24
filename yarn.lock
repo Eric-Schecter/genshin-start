@@ -64,10 +64,10 @@
     eslint-plugin-vue "9.18.1"
     eslint-tinker "0.5.0"
 
-"@eric-schecter/graphics@1.0.6":
-  version "1.0.6"
-  resolved "https://npm.pkg.github.com/download/@eric-schecter/graphics/1.0.6/fa0ced230fe913f165ba13f9df7cf5d472d91089#fa0ced230fe913f165ba13f9df7cf5d472d91089"
-  integrity sha512-r7UD3SKuGxxIrbgH/t1RK0Wil5Q/TQN37L/kdUSgla7wSwW352mEypJGLeSC6VH+eEfj3OGIhpZEfky43GaQ0g==
+"@eric-schecter/graphics@1.0.9":
+  version "1.0.9"
+  resolved "https://npm.pkg.github.com/download/@eric-schecter/graphics/1.0.9/267fcbb2934a3c26abe6820f5568b96714c1876f#267fcbb2934a3c26abe6820f5568b96714c1876f"
+  integrity sha512-/q8i9fhnJ7oEoZhevUioB2pdvENtzFllQ+mnKhvcnP7HI6zIfRy307T8tLpE0EzXmDn0r55esPJrCJ8S9YOtgA==
   dependencies:
     "@webgpu/types" "^0.1.67"
     gl-matrix "^3.4.4"
@@ -4105,6 +4105,11 @@ vfile@^2.0.0:
     replace-ext "1.0.0"
     unist-util-stringify-position "^1.0.0"
     vfile-message "^1.0.0"
+
+vite-plugin-glsl@^1.5.5:
+  version "1.5.5"
+  resolved "https://registry.yarnpkg.com/vite-plugin-glsl/-/vite-plugin-glsl-1.5.5.tgz#6316d733c96ecf98f3d05f8a0188bbb5d5d3e31f"
+  integrity sha512-6NM2P4JkM+1hNSqMhM4eagX03bmhEoTyrOrk68y3Q6KXfdF73QIuCb6BmRZvwLPgXTCOBM3Zc8gL1WxctYnrUQ==
 
 vite-plugin-wasm@^3.5.0:
   version "3.5.0"

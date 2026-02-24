@@ -5,6 +5,8 @@ import {
     GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
 } from "@eric-schecter/graphics";
 import { scene, Renderer, Plane, getPrimaryCamera, invalid_id } from "./renderer";
+import simpleVertexShader from './shaders/simple_vs.wgsl';
+import fogPixelShader from './shaders/fog_ps.wgsl';
 
 export class Fog extends Renderer {
     private _pipeline: GraphicsPipeline;
@@ -114,10 +116,6 @@ export class Fog extends Renderer {
     }
 
     private async _setupPipeline() {
-        const [vs, ps] = await Promise.all([
-            this._graphicsDevice.createShader('shaders/simple_vs.wgsl'),
-            this._graphicsDevice.createShader('shaders/fog_ps.wgsl')]);
-
         const il: InputLayout = {
             elements: [
                 {
@@ -212,8 +210,8 @@ export class Fog extends Renderer {
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({
-            vs,
-            ps,
+            vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(fogPixelShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,

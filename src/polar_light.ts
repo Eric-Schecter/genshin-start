@@ -5,11 +5,14 @@ import {
     EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE,
     GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
 } from "@eric-schecter/graphics";
-import { clone, scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, TransformComponent, getEntityByTag, createDefaultMaterialComponent } from "./renderer";
+import {
+    clone, scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, TransformComponent, getEntityByTag,
+    createDefaultMaterialComponent, EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager, floatSize
+} from "./renderer";
 import { zLength } from "./constant";
-import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager } from "./renderer/renderers";
 import { addComponent, addEntity, query } from "bitecs";
-import { floatSize } from "./renderer/constant";
+import simpleVertexShader from './shaders/simple_vs.wgsl';
+import polarLightPixelShader from './shaders/polar_light_ps.wgsl';
 
 export class PolarLight extends Renderer {
     private _prefab = invalid_id; // not real prefab
@@ -206,10 +209,6 @@ export class PolarLight extends Renderer {
     }
 
     private async _setupPipeline() {
-        const [vs, ps] = await Promise.all([
-            this._graphicsDevice.createShader('shaders/simple_vs.wgsl'),
-            this._graphicsDevice.createShader('shaders/polar_light_ps.wgsl')]);
-
         const il: InputLayout = {
             elements: [
                 {
@@ -304,8 +303,8 @@ export class PolarLight extends Renderer {
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({
-            vs,
-            ps,
+            vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(polarLightPixelShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,

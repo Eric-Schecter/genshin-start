@@ -12,6 +12,8 @@ import { vec3 } from "gl-matrix";
 import { getForward, quatToMat4 } from "../utils";
 import { floatSize, maxInstanceCount } from "../constant";
 import { EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager } from "./resource_manager";
+import meshVertexShader from '../../shaders/mesh_vs.wgsl';
+import meshPixelShader from '../../shaders/mesh_ps.wgsl';
 
 export class MeshRenderer extends Renderer {
     private _pipeline: GraphicsPipeline;
@@ -232,9 +234,7 @@ export class MeshRenderer extends Renderer {
         // console.log(`drawcall: ${drawcall}, entity: ${entityCount}`);
     }
 
-    private async _setupPipeline() {
-        const [vs, ps] = await Promise.all([this._graphicsDevice.createShader('shaders/mesh_vs.wgsl'), this._graphicsDevice.createShader('shaders/mesh_ps.wgsl')]);
-
+    private _setupPipeline() {
         const il: InputLayout = {
             elements: [
                 {
@@ -337,8 +337,8 @@ export class MeshRenderer extends Renderer {
         };
 
         this._pipeline = this._graphicsDevice.createPipeline({
-            vs,
-            ps,
+            vs: this._graphicsDevice.createShaderByCode(meshVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(meshPixelShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,

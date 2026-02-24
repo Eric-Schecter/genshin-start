@@ -9,6 +9,9 @@ import {
     EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager
 } from "./renderer";
 import { addComponent, addEntity, query } from "bitecs";
+import simpleVertexShader from './shaders/simple_vs.wgsl';
+import bigCloudPixelShader from './shaders/cloud/big_cloud_ps.wgsl';
+import bigCloudBgPixelShader from './shaders/cloud/big_cloud_bg_ps.wgsl';
 
 export class BigCloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
@@ -177,13 +180,6 @@ export class BigCloud extends Renderer {
     }
 
     private async _setupPipeline() {
-
-        const [vs, ps, bg_ps] = await Promise.all([
-            this._graphicsDevice.createShader('shaders/simple_vs.wgsl'),
-            this._graphicsDevice.createShader('shaders/cloud/big_cloud_ps.wgsl'),
-            this._graphicsDevice.createShader('shaders/cloud/big_cloud_bg_ps.wgsl'),
-        ]);
-
         const il: InputLayout = {
             elements: [
                 {
@@ -278,8 +274,8 @@ export class BigCloud extends Renderer {
         };
 
         this._cloudPipeline = this._graphicsDevice.createPipeline({
-            vs,
-            ps,
+            vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(bigCloudPixelShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,
@@ -293,8 +289,8 @@ export class BigCloud extends Renderer {
         })
 
         this._cloudBGPipeline = this._graphicsDevice.createPipeline({
-            vs,
-            ps: bg_ps,
+            vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(bigCloudBgPixelShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,

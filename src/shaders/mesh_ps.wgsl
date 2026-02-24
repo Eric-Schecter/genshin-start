@@ -1,3 +1,5 @@
+#include "constants.wgsl"
+
 alias ShadowMapType = u32;
 const SHADOW_TYPE_NORMAL: ShadowMapType = 0u;
 const SHADOW_TYPE_PCF: ShadowMapType = 1u;
@@ -7,9 +9,6 @@ override SHADOWMAP_TYPE: u32 = SHADOW_TYPE_PCF;
 override CARTOON: bool = true;
 override USE_FOG: bool = true;
 override FOG_EXP2: bool = false;
-
-const PI: f32 = 3.141592653589793;
-const PI2: f32 = 6.28318531;
 
 alias LightType = u32;
 const LIGHT_TYPE_DIRECTIONAL: LightType = 0u;

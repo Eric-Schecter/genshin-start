@@ -10,6 +10,8 @@ import {
     EN_SAMPLER_TYPE, ResourceManager
 } from "./renderer";
 import { zLength } from "./constant";
+import cloudVertexShader from './shaders/cloud/cloud_vs.wgsl';
+import cloudPixelShader from './shaders/cloud/cloud_ps.wgsl';
 
 export class Cloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
@@ -163,11 +165,6 @@ export class Cloud extends Renderer {
     }
 
     private async _setupPipeline() {
-
-        const [vs, ps] = await Promise.all([
-            this._graphicsDevice.createShader('shaders/cloud/cloud_vs.wgsl'),
-            this._graphicsDevice.createShader('shaders/cloud/cloud_ps.wgsl')]);
-
         const il: InputLayout = {
             elements: [
                 {
@@ -262,8 +259,8 @@ export class Cloud extends Renderer {
         };
 
         this._cloudPipeline = this._graphicsDevice.createPipeline({
-            vs,
-            ps,
+            vs: this._graphicsDevice.createShaderByCode(cloudVertexShader),
+            ps: this._graphicsDevice.createShaderByCode(cloudPixelShader),
             topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,
