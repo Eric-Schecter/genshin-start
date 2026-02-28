@@ -1,5 +1,5 @@
 import { mat4, vec3, vec4 } from "gl-matrix";
-import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer/ecs";
+import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "@eric-schecter/renderer";
 import { query } from "bitecs";
 import { Tween, Easing } from '@tweenjs/tween.js';
 import Color from "color";

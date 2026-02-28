@@ -1,12 +1,102 @@
 import {
     BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE,
     EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT,
-    EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE, GraphicsDevice,
-    GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
+    EN_INPUT_CLASSIFICATION, EN_STENCIL_OP, GraphicsDevice,
+    GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, RenderTargetBlendState, WGPUBuffer
 } from "@eric-schecter/graphics";
-import { scene, Renderer, Plane, getPrimaryCamera, invalid_id } from "./renderer";
-import simpleVertexShader from './shaders/simple_vs.wgsl';
-import fogPixelShader from './shaders/fog_ps.wgsl';
+import { scene, Renderer, Plane, getPrimaryCamera, invalid_id } from "@eric-schecter/renderer";
+import simpleVertexShader from '@eric-schecter/renderer/src/shaders/simple_vs.wgsl?raw';
+import { fogPixelShader } from "./shaders";
+
+function createDepthStencil(override: Partial<DepthStencilState> = {}): DepthStencilState {
+    const defaultState: DepthStencilState = {
+        depthEnable: true,
+        stencilEnable: false,
+        depthBoundsTestEnable: false,
+        depthWriteMask: EN_DEPTH_WRITE_MASK.ZERO,
+        depthFunc: EN_COMPARISION_FUNC.LESS,
+        stencilReadMask: 0,
+        stencilWriteMask: 0xff,
+        frontFace: {
+            stencilFunc: EN_COMPARISION_FUNC.ALWAYS,
+            stencilPassOp: EN_STENCIL_OP.REPLACE,
+            stencilFailOp: EN_STENCIL_OP.KEEP,
+            stencilDepthFailOp: EN_STENCIL_OP.KEEP,
+        },
+        backFace: {
+            stencilFunc: EN_COMPARISION_FUNC.ALWAYS,
+            stencilPassOp: EN_STENCIL_OP.REPLACE,
+            stencilFailOp: EN_STENCIL_OP.KEEP,
+            stencilDepthFailOp: EN_STENCIL_OP.KEEP,
+        }
+    };
+
+    return {
+        ...defaultState,
+        ...override,
+        frontFace: override.frontFace
+            ? { ...defaultState.frontFace, ...override.frontFace }
+            : defaultState.frontFace,
+        backFace: override.backFace
+            ? { ...defaultState.backFace, ...override.backFace }
+            : defaultState.backFace,
+    }
+}
+
+function createRasterizerState(override: Partial<RasterizerState> = {}): RasterizerState {
+    const defaultState: RasterizerState = {
+        fillMode: EN_FILL_MODE.SOLID,
+        cullMode: EN_CULL_MODE.BACK,
+        depthBias: 0,
+        depthBiasClamp: 0,
+        slopeScaledDepthBias: 0,
+        depthClipEnable: false, // not supported
+        multisampleEnable: true,
+        antialiasedLineEnable: false,
+        conservativeRasterizationEnable: false,
+        forcedSampleCount: 0,
+        lineWidth: 1,
+        frontCounterClockwise: true,
+    };
+
+    return {
+        ...defaultState,
+        ...override,
+    }
+}
+
+type PartialBlendState = Omit<Partial<BlendState>, 'renderTarget'> & {
+    renderTarget?: Array<Partial<RenderTargetBlendState> | undefined>;
+};
+
+function createBlendState(override: PartialBlendState = {}): BlendState {
+    const defaultRenderTarget = {
+        srcBlend: EN_BLEND.SRC_ALPHA,
+        destBlend: EN_BLEND.INV_SRC_ALPHA,
+        blendOp: EN_BLEND_OP.ADD,
+        srcBlendAlpha: EN_BLEND.ONE,
+        destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
+        blendOpAlpha: EN_BLEND_OP.ADD,
+        blendEnable: true,
+        renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
+    };
+    const bs: BlendState = {
+        renderTarget: [],
+        alphaToCoverageEnable: false,
+        independentBlendEnable: true,
+    };
+
+    return {
+        ...bs,
+        ...override,
+        renderTarget: override.renderTarget
+            ? override.renderTarget.map((rt) => ({
+                ...defaultRenderTarget,
+                ...rt,
+            }))
+            : bs.renderTarget,
+    }
+}
 
 export class Fog extends Renderer {
     private _pipeline: GraphicsPipeline;
@@ -24,20 +114,14 @@ export class Fog extends Renderer {
         this._instanceStorageBuffer = this._graphicsDevice.createBuffer({
             size: 64 * 4,
             name: 'instance storage buffer',
-            usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
             count: 1,
         });
 
         this._paramsBuffer = this._graphicsDevice.createBuffer({
             size: 4,
             name: 'params buffer',
-            usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
             count: 1,
         })
 
@@ -58,7 +142,7 @@ export class Fog extends Renderer {
         this._planeEntity = planeEntity;
     }
 
-    public update(dt: number, et:number) {
+    public update(dt: number, et: number) {
         if (this._planeEntity === invalid_id) {
             return;
         }
@@ -115,7 +199,7 @@ export class Fog extends Renderer {
         this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, 1);
     }
 
-    private async _setupPipeline() {
+    private _setupPipeline() {
         const il: InputLayout = {
             elements: [
                 {
@@ -145,82 +229,26 @@ export class Fog extends Renderer {
             ]
         };
 
-        const dss: DepthStencilState = {
-            depthEnable: true,
-            stencilEnable: false,
-            depthBoundsTestEnable: false,
-            depthWriteMask: EN_DEPTH_WRITE_MASK.ZERO,
-            depthFunc: EN_COMPARISION_FUNC.LESS,
-            stencilReadMask: 0,
-            stencilWriteMask: 0xff,
-            frontFace: {
-                stencilFunc: EN_COMPARISION_FUNC.ALWAYS,
-                stencilPassOp: EN_STENCIL_OP.REPLACE,
-                stencilFailOp: EN_STENCIL_OP.KEEP,
-                stencilDepthFailOp: EN_STENCIL_OP.KEEP,
-            },
-            backFace: {
-                stencilFunc: EN_COMPARISION_FUNC.ALWAYS,
-                stencilPassOp: EN_STENCIL_OP.REPLACE,
-                stencilFailOp: EN_STENCIL_OP.KEEP,
-                stencilDepthFailOp: EN_STENCIL_OP.KEEP,
-            }
-        };
-
-        const rs: RasterizerState = {
-            fillMode: EN_FILL_MODE.SOLID,
-            cullMode: EN_CULL_MODE.BACK,
-            depthBias: 0,
-            depthBiasClamp: 0,
-            slopeScaledDepthBias: 0,
-            depthClipEnable: false, // not supported
-            multisampleEnable: true,
-            antialiasedLineEnable: false,
-            conservativeRasterizationEnable: false,
-            forcedSampleCount: 0,
-            lineWidth: 1,
-            frontCounterClockwise: true,
-        };
-
-        const bs: BlendState = {
+        const dss = createDepthStencil();
+        const rs = createRasterizerState();
+        const bs = createBlendState({
             renderTarget: [
-                {
-                    srcBlend: EN_BLEND.SRC_ALPHA,
-                    destBlend: EN_BLEND.INV_SRC_ALPHA,
-                    blendOp: EN_BLEND_OP.ADD,
-                    srcBlendAlpha: EN_BLEND.ONE,
-                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
-                    blendOpAlpha: EN_BLEND_OP.ADD,
-                    blendEnable: true,
-                    renderTargetWriteMask: EN_COLOR_WRITE.ENABLE_ALL
-                },
-                {
-                    srcBlend: EN_BLEND.SRC_ALPHA,
-                    destBlend: EN_BLEND.INV_SRC_ALPHA,
-                    blendOp: EN_BLEND_OP.ADD,
-                    srcBlendAlpha: EN_BLEND.ONE,
-                    destBlendAlpha: EN_BLEND.INV_SRC_ALPHA,
-                    blendOpAlpha: EN_BLEND_OP.ADD,
+                {}, {
                     blendEnable: false,
                     renderTargetWriteMask: EN_COLOR_WRITE.DISABLE
                 }
-            ],
-            alphaToCoverageEnable: false,
-            independentBlendEnable: true,
-        };
+            ]
+        });
 
         this._pipeline = this._graphicsDevice.createPipeline({
             vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
             ps: this._graphicsDevice.createShaderByCode(fogPixelShader),
-            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,
             bs,
             rs,
             dss,
-            patchControlPoints: 1,
 
-            sampleMask: 0xFFFFFFFF,
             name: 'fog',
         })
     }

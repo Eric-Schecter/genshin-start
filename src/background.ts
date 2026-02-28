@@ -1,9 +1,8 @@
 import {
-    EN_BIND_FLAG, EN_FORMAT, EN_RESOURCE_MISC_FLAG, EN_RESOURCE_STATE, EN_TEX_TYPE, EN_USAGE, getFormatStride,
-    GraphicsDevice, SubresourceData, TextureDesc
+    EN_BIND_FLAG, EN_FORMAT, EN_RESOURCE_STATE, getFormatStride, GraphicsDevice, SubresourceData, TextureDesc
 } from "@eric-schecter/graphics";
 import Color, { ColorInstance } from "color";
-import { mat3, vec3, vec4 } from "gl-matrix";
+import { mat3, vec3 } from "gl-matrix";
 
 export class BackGround {
     public constructor(private readonly _graphicsDevice: GraphicsDevice) { }
@@ -16,18 +15,9 @@ export class BackGround {
         const colorB = new Color().hex('#26a8ff');
 
         const desc: TextureDesc = {
-            type: EN_TEX_TYPE.TEXTURE_2D,
             width,
             height,
-            depth: 1,
-            arraySize: 1,
-            mipLevels: 1,
-            format: EN_FORMAT.R32G32B32A32_FLOAT,
-            sampleCount: 1,
-            usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            clear: { color: vec4.create() },
             layout: EN_RESOURCE_STATE.SHADER_RESOURCE,
             name: 'sky',
         };
@@ -60,7 +50,7 @@ export class BackGround {
 
         const data: SubresourceData = {
             dataPtr: rgba,
-            rowRitch: width * getFormatStride(desc.format),
+            rowRitch: width * getFormatStride(EN_FORMAT.R32G32B32A32_FLOAT),
             slicePitch: 0,
         };
         return this._graphicsDevice.createTexture(desc, [data]);

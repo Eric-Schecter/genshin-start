@@ -1,7 +1,7 @@
 import { GraphicsDevice } from "@eric-schecter/graphics";
 import { quat, vec3 } from "gl-matrix";
 import * as Tone from 'tone';
-import { FirstPersonController, getPrimaryCamera, SceneRenderer, scene, EN_ENABLE_FLAG } from "./renderer";
+import { FirstPersonController, getPrimaryCamera, SceneRenderer, scene, EN_ENABLE_FLAG } from "@eric-schecter/renderer";
 import { Road } from "./road";
 import { ForwardController } from "./forward_controller";
 import { Column } from "./column";
@@ -96,10 +96,9 @@ export class Game extends SceneRenderer {
             url: "audios/BGM.mp3",
             loop: true,
             autostart: false,
-        }
-        ).toDestination();
+        }).toDestination();
         document.addEventListener('click', () => {
-            player.start();
+            player.start(0, (this._time - this._startTime) / 1000);
         })
     }
 

@@ -1,17 +1,16 @@
 import { vec3 } from "gl-matrix";
 import {
     BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK,
-    EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP,
-    EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
+    EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_STENCIL_OP,
+    GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
 } from "@eric-schecter/graphics";
 import {
     scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, getEntityByTag, createDefaultMaterialComponent,
     EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager
-} from "./renderer";
+} from "@eric-schecter/renderer";
 import { addComponent, addEntity, query } from "bitecs";
-import simpleVertexShader from './shaders/simple_vs.wgsl';
-import bigCloudPixelShader from './shaders/cloud/big_cloud_ps.wgsl';
-import bigCloudBgPixelShader from './shaders/cloud/big_cloud_bg_ps.wgsl';
+import simpleVertexShader from '@eric-schecter/renderer/src/shaders/simple_vs.wgsl';
+import { bigCloudBgPixelShader, bigCloudPixelShader } from "./shaders";
 
 export class BigCloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
@@ -33,10 +32,7 @@ export class BigCloud extends Renderer {
             this._modelBuffers.push(this._graphicsDevice.createBuffer({
                 size: 64,
                 name: 'model buffer',
-                usage: EN_USAGE.DEFAULT,
                 bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
-                miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-                stride: 0,
                 count: 1,
             }));
         }
@@ -48,7 +44,7 @@ export class BigCloud extends Renderer {
             console.error('cannot find sm big cloud');
             return;
         }
-        await this._setupPipeline();
+        this._setupPipeline();
         const texture = await imageLoader.load('images/Tex_0063.png');
         const textureBG = await imageLoader.load('images/Tex_0067b.png');
 
@@ -179,7 +175,7 @@ export class BigCloud extends Renderer {
         }
     }
 
-    private async _setupPipeline() {
+    private _setupPipeline() {
         const il: InputLayout = {
             elements: [
                 {
@@ -276,30 +272,24 @@ export class BigCloud extends Renderer {
         this._cloudPipeline = this._graphicsDevice.createPipeline({
             vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
             ps: this._graphicsDevice.createShaderByCode(bigCloudPixelShader),
-            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,
             bs,
             rs,
             dss,
-            patchControlPoints: 1,
 
-            sampleMask: 0xFFFFFFFF,
             name: 'big cloud',
         })
 
         this._cloudBGPipeline = this._graphicsDevice.createPipeline({
             vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
             ps: this._graphicsDevice.createShaderByCode(bigCloudBgPixelShader),
-            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,
             bs,
             rs,
             dss,
-            patchControlPoints: 1,
 
-            sampleMask: 0xFFFFFFFF,
             name: 'big cloud bg',
         })
     }

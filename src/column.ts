@@ -1,6 +1,6 @@
 import { quat, vec3 } from "gl-matrix";
 import { MashList } from "./datas";
-import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "./renderer";
+import { clone, getEntityByTag, getPrimaryCamera, invalid_id, scene } from "@eric-schecter/renderer";
 import { query } from "bitecs";
 import { zLength } from "./constant";
 

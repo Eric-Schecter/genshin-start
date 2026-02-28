@@ -1,5 +1,5 @@
 import { vec3, mat4 } from "gl-matrix";
-import { Controller } from "./renderer";
+import { Controller } from "@eric-schecter/renderer";
 
 export class ForwardController extends Controller {
     private _speed = vec3.fromValues(0, 0, -88);

@@ -2,16 +2,15 @@ import { vec3 } from "gl-matrix";
 import { CloudList } from "./datas";
 import {
     BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE,
-    EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY,
+    EN_DEPTH_WRITE_MASK, EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION,
     EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE, GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
 } from "@eric-schecter/graphics";
 import {
     clone, scene, Renderer, imageLoader, Plane, getPrimaryCamera, invalid_id, TransformComponent, EN_DATA_TEXTURE_TYPE,
     EN_SAMPLER_TYPE, ResourceManager
-} from "./renderer";
+} from "@eric-schecter/renderer";
 import { zLength } from "./constant";
-import cloudVertexShader from './shaders/cloud/cloud_vs.wgsl';
-import cloudPixelShader from './shaders/cloud/cloud_ps.wgsl';
+import { cloudPixelShader, cloudVertexShader } from "./shaders";
 
 export class Cloud extends Renderer {
     private _cloudPipeline: GraphicsPipeline;
@@ -33,16 +32,13 @@ export class Cloud extends Renderer {
         this._instanceStorageBuffer = this._graphicsDevice.createBuffer({
             size: maxCount * 64 * 4,
             name: 'instance storage buffer',
-            usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
             count: maxCount,
         });
     }
 
     public async onload() {
-        await this._setupPipeline();
+        this._setupPipeline();
         const texture = await imageLoader.load('images/Tex_0062.png');
 
         const posList: vec3[] = [];
@@ -164,7 +160,7 @@ export class Cloud extends Renderer {
         this._instanceStorageBuffer.update(data);
     }
 
-    private async _setupPipeline() {
+    private _setupPipeline() {
         const il: InputLayout = {
             elements: [
                 {
@@ -261,15 +257,12 @@ export class Cloud extends Renderer {
         this._cloudPipeline = this._graphicsDevice.createPipeline({
             vs: this._graphicsDevice.createShaderByCode(cloudVertexShader),
             ps: this._graphicsDevice.createShaderByCode(cloudPixelShader),
-            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,
             bs,
             rs,
             dss,
-            patchControlPoints: 1,
 
-            sampleMask: 0xFFFFFFFF,
             name: 'cloud',
         })
     }

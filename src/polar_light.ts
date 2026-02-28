@@ -2,16 +2,16 @@ import { quat, vec3 } from "gl-matrix";
 import { PolarLightList } from "./datas";
 import {
     BlendState, DepthStencilState, EN_BIND_FLAG, EN_BLEND, EN_BLEND_OP, EN_COLOR_WRITE, EN_COMPARISION_FUNC, EN_CULL_MODE, EN_DEPTH_WRITE_MASK,
-    EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_PRIMITIVE_TOPOLOGY, EN_RESOURCE_MISC_FLAG, EN_STENCIL_OP, EN_USAGE,
+    EN_FILL_MODE, EN_FORMAT, EN_INDEX_BUFFER_FORMAT, EN_INPUT_CLASSIFICATION, EN_STENCIL_OP,
     GraphicsDevice, GraphicsPipeline, InputLayout, RasterizerState, RenderCommandBuffer, WGPUBuffer
 } from "@eric-schecter/graphics";
 import {
     clone, scene, Renderer, imageLoader, getPrimaryCamera, invalid_id, TransformComponent, getEntityByTag,
     createDefaultMaterialComponent, EN_DATA_TEXTURE_TYPE, EN_SAMPLER_TYPE, ResourceManager, floatSize
-} from "./renderer";
+} from "@eric-schecter/renderer";
 import { zLength } from "./constant";
 import { addComponent, addEntity, query } from "bitecs";
-import simpleVertexShader from './shaders/simple_vs.wgsl';
+import simpleVertexShader from '@eric-schecter/renderer/src/shaders/simple_vs.wgsl?raw';
 import polarLightPixelShader from './shaders/polar_light_ps.wgsl';
 
 export class PolarLight extends Renderer {
@@ -39,20 +39,14 @@ export class PolarLight extends Renderer {
         this._instanceStorageBuffer = this._graphicsDevice.createBuffer({
             size: maxCount * 64 * floatSize,
             name: 'instance storage buffer',
-            usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.SHADER_RESOURCE,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
             count: maxCount,
         });
 
         this._paramsBuffer = this._graphicsDevice.createBuffer({
             size: floatSize,
             name: 'params buffer',
-            usage: EN_USAGE.DEFAULT,
             bindFlags: EN_BIND_FLAG.CONSTANT_BUFFER,
-            miscFlags: EN_RESOURCE_MISC_FLAG.NONE,
-            stride: 0,
             count: 1,
         })
     }
@@ -63,7 +57,7 @@ export class PolarLight extends Renderer {
             console.error('cannot find sm light');
             return;
         }
-        await this._setupPipeline();
+        this._setupPipeline();
         const texture = await imageLoader.load('images/Tex_0071.png');
 
         const transformList: { pos: vec3, rotation: quat }[] = [];
@@ -208,7 +202,7 @@ export class PolarLight extends Renderer {
         this._graphicsDevice.drawIndexedInstanced(cmd, indexBuffer!.desc.count, this._posList.length);
     }
 
-    private async _setupPipeline() {
+    private _setupPipeline() {
         const il: InputLayout = {
             elements: [
                 {
@@ -305,15 +299,12 @@ export class PolarLight extends Renderer {
         this._pipeline = this._graphicsDevice.createPipeline({
             vs: this._graphicsDevice.createShaderByCode(simpleVertexShader),
             ps: this._graphicsDevice.createShaderByCode(polarLightPixelShader),
-            topology: EN_PRIMITIVE_TOPOLOGY.TRIANGLELIST,
 
             il,
             bs,
             rs,
             dss,
-            patchControlPoints: 1,
 
-            sampleMask: 0xFFFFFFFF,
             name: 'polar light',
         })
     }

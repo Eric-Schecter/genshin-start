@@ -2,7 +2,7 @@ import { addComponent, addEntity } from "bitecs";
 import {
     creaetDefaultLightComponent, creaetDefaultTransformComponent, createDefaultCameraComponent,
     EN_CAMERA_TYPE, EN_LIGHT_TYPE, getPrimaryCamera, invalid_id, scene
-} from "./renderer";
+} from "@eric-schecter/renderer";
 import { mat3, mat4, quat, vec3 } from "gl-matrix";
 
 export class Lights {

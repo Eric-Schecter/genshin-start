@@ -7,8 +7,18 @@ export default defineConfig({
     plugins: [
         wasm(),
         glsl({
-            include: ['**/*.wgsl', '**/*.vert', '**/*.frag'],
+            include: [
+                '**/*.wgsl',
+            ],
             warnDuplicatedImports: true,
         }),
     ],
+    // assetsInclude: ['**/*.wgsl'],
+    optimizeDeps: {
+        esbuildOptions: {
+            loader: {
+                '.wgsl': 'text',
+            },
+        },
+    },
 });
