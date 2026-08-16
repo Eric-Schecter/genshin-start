@@ -9,7 +9,7 @@
         "deploy": "yarn build && gh-pages -d dist"
     },
     "dependencies": {
-        "@eric-schecter/renderer": "1.0.17",
+        "@eric-schecter/renderer": "1.0.18",
         "@tweenjs/tween.js": "^25.0.0",
         "color": "^5.0.3",
         "gl-matrix": "^3.4.4",

@@ -72,10 +72,10 @@
     "@webgpu/types" "^0.1.67"
     gl-matrix "^3.4.4"
 
-"@eric-schecter/renderer@1.0.17":
-  version "1.0.17"
-  resolved "https://npm.pkg.github.com/download/@eric-schecter/renderer/1.0.17/c990048d7b5ad4dab64b527a3c6271db2455f0f8#c990048d7b5ad4dab64b527a3c6271db2455f0f8"
-  integrity sha512-EpudIifDoX+XlbTdFSFzn2T6kqTNW+34fGDZm99zTEuKTgh1Bhvp8uguuim2Os+ikUrBwn/JKCEeOPdfoECIlw==
+"@eric-schecter/renderer@1.0.18":
+  version "1.0.18"
+  resolved "https://npm.pkg.github.com/download/@eric-schecter/renderer/1.0.18/8c15dd7a4869b5b980d14ea4d255401a86bd54f9#8c15dd7a4869b5b980d14ea4d255401a86bd54f9"
+  integrity sha512-RIAUepQg1F68yfRu6mGVX8LbkYCBOMljBRPQVOin+U2Sg6lH/RTB6aeCSlTGlXdisyOkrHf/+qHfwMBKfIxYHg==
   dependencies:
     "@eric-schecter/graphics" "1.0.16"
     "@gltf-transform/core" "^4.3.0"

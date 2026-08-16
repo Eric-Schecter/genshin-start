@@ -46,6 +46,7 @@ export class Lights {
         mat4.transpose(m4, m4);
         const m3 = mat3.fromMat4(mat3.create(), m4);
         quat.fromMat3(transforms[directionalLightEntity].rotation, m3);
+        console.log(transforms[directionalLightEntity].rotation,1113);
 
         this._directionalLightEntity = directionalLightEntity;
     }

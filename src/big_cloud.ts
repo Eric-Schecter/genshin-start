@@ -101,8 +101,7 @@ export class BigCloud extends Renderer {
     public render(cmd: RenderCommandBuffer) {
         const cloudReady = this._cloudPipeline && this._cloudEntity !== invalid_id;
         const cloudBgReady = this._cloudBGPipeline && this._cloudBgEntity !== invalid_id
-        if (!cloudReady && !cloudBgReady
-        ) {
+        if (!cloudReady && !cloudBgReady) {
             return;
         }
 

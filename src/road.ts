@@ -35,8 +35,10 @@ export class Road {
             const hierarchy = hierarchies[entity];
             if (hierarchy.parent === smRoadEntity) {
                 const transform = transforms[entity];
+
                 vec3.scale(transform.scale, transform.scale, 0.1);
                 vec3.scale(transform.translation, transform.translation, 0.1);
+
                 vec3.sub(transform.translation, transform.translation, this._offset);
 
                 transform.dirty = true;

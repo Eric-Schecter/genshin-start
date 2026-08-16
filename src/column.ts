@@ -40,6 +40,7 @@ export class Column {
             else {
                 const clonedEntity = this._markedObj.has(Object) ? clone(entity) : entity;
                 const { transforms, hierarchies } = scene.components;
+
                 for (const entity of query(scene, [hierarchies])) {
                     const hierarchyComponent = hierarchies[entity];
                     if (hierarchyComponent.parent === clonedEntity) {

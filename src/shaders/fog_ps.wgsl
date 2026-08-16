@@ -49,7 +49,7 @@ fn noise3d(p:vec3<f32>) -> f32 {
 
 @fragment
 fn main(input: VertexOutput) -> @location(0) vec4<f32> {
-	let uv = input.uv*vec2(0.0024,0.0016);
+	// let uv = input.uv*vec2(0.0024,0.0016);
 
 	var f = 0.0;
 
